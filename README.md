@@ -1,6 +1,6 @@
 # hxluau
 
-![](https://img.shields.io/github/repo-size/MAJigsaw77/hxluau) ![](https://badgen.net/github/open-issues/MAJigsaw77/hxluau) ![](https://badgen.net/badge/license/MIT/green)
+![](https://img.shields.io/github/repo-size/Ajwyunsx/hxluau) ![](https://badgen.net/github/open-issues/Ajwyunsx/hxluau) ![](https://badgen.net/badge/license/MIT/green)
 
 Haxe/hxcpp @:native bindings for [Luau](https://luau.org/), the fast, small, safe, gradually typed embeddable scripting language derived from Lua.
 
