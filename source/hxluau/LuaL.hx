@@ -590,6 +590,22 @@ extern class LuaL
 	 * @param s The string to load.
 	 * @return The result of the load operation.
 	 */
-	@:native('luaL_loadstring')
-	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int;
+	inline static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int {
+		untyped __cpp__('
+			// Compile using Luau
+			size_t bytecodeSize;
+			char* bytecode = luau_compile({0}, strlen({0}), NULL, &bytecodeSize);
+			
+			if (!bytecode) {
+				lua_pushfstring({1}, "cannot compile string");
+				return LUA_ERRSYNTAX;
+			}
+			
+			// Load the bytecode
+			int result = luau_load({1}, "string", bytecode, bytecodeSize, 0);
+			free(bytecode);
+			return result;
+		', s, L);
+		return Lua.ERRERR; // This line should not be reached
+	}
 }
