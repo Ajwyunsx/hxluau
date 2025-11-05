@@ -392,11 +392,55 @@ extern class LuaL
 	 * @return The result of the execution.
 	 */
 	inline static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
-		final result = loadfile(L, filename);
-		if (result == 0) {
-			return Lua.pcall(L, 0, Lua.MULTRET, 0);
-		}
-		return result;
+		untyped __cpp__('
+			FILE* file = fopen(filename, "rb");
+			if (!file) {
+				lua_pushfstring(L, "cannot open %s", filename);
+				return LUA_ERRFILE;
+			}
+			
+			fseek(file, 0, SEEK_END);
+			size_t size = ftell(file);
+			fseek(file, 0, SEEK_SET);
+			
+			char* buffer = (char*)malloc(size);
+			if (!buffer) {
+				fclose(file);
+				lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
+				return LUA_ERRMEM;
+			}
+			
+			size_t read = fread(buffer, 1, size, file);
+			fclose(file);
+			
+			if (read != size) {
+				free(buffer);
+				lua_pushfstring(L, "cannot read %s", filename);
+				return LUA_ERRFILE;
+			}
+			
+			// Compile using Luau
+			size_t bytecodeSize;
+			char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
+			free(buffer);
+			
+			if (!bytecode) {
+				lua_pushfstring(L, "cannot compile %s", filename);
+				return LUA_ERRSYNTAX;
+			}
+			
+			// Load the bytecode
+			int result = luau_load(L, filename, bytecode, bytecodeSize, 0);
+			free(bytecode);
+			
+			// If load was successful, call the function
+			if (result == 0) {
+				result = lua_pcall(L, 0, LUA_MULTRET, 0);
+			}
+			
+			return result;
+		');
+		return Lua.ERRERR; // This line should not be reached
 	}
 
 	/**
@@ -539,61 +583,51 @@ extern class LuaL
 	 * @param filename The name of the file to load.
 	 * @return The result of the load operation.
 	 */
-	@:functionCode('
-		FILE* file = fopen(filename, "rb");
-		if (!file) {
-			lua_pushfstring(L, "cannot open %s", filename);
-			return LUA_ERRFILE;
-		}
-		
-		fseek(file, 0, SEEK_END);
-		size_t size = ftell(file);
-		fseek(file, 0, SEEK_SET);
-		
-		char* buffer = (char*)malloc(size);
-		if (!buffer) {
+	inline static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
+		untyped __cpp__('
+			FILE* file = fopen(filename, "rb");
+			if (!file) {
+				lua_pushfstring(L, "cannot open %s", filename);
+				return LUA_ERRFILE;
+			}
+			
+			fseek(file, 0, SEEK_END);
+			size_t size = ftell(file);
+			fseek(file, 0, SEEK_SET);
+			
+			char* buffer = (char*)malloc(size);
+			if (!buffer) {
+				fclose(file);
+				lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
+				return LUA_ERRMEM;
+			}
+			
+			size_t read = fread(buffer, 1, size, file);
 			fclose(file);
-			lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
-			return LUA_ERRMEM;
-		}
-		
-		size_t read = fread(buffer, 1, size, file);
-		fclose(file);
-		
-		if (read != size) {
+			
+			if (read != size) {
+				free(buffer);
+				lua_pushfstring(L, "cannot read %s", filename);
+				return LUA_ERRFILE;
+			}
+			
+			// Compile using Luau
+			size_t bytecodeSize;
+			char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
 			free(buffer);
-			lua_pushfstring(L, "cannot read %s", filename);
-			return LUA_ERRFILE;
-		}
-		
-		// Compile using Luau
-		size_t bytecodeSize;
-		char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
-		free(buffer);
-		
-		if (!bytecode) {
-			lua_pushfstring(L, "cannot compile %s", filename);
-			return LUA_ERRSYNTAX;
-		}
-		
-		// Load the bytecode
-		int result = luau_load(L, filename, bytecode, bytecodeSize, 0);
-		free(bytecode);
-		return result;
-	')
-	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
-
-	/**
-	 * Loads a buffer for Luau, requires separate compilation step via luau_compile.
-	 *
-	 * @param L The Lua state.
-	 * @param buff The buffer to load.
-	 * @param sz The size of the buffer.
-	 * @param name The name of the buffer.
-	 * @return The result of the load operation.
-	 */
-	@:native('luaL_loadbuffer')
-	static function loadbuffer(L:cpp.RawPointer<Lua_State>, buff:cpp.ConstCharStar, sz:cpp.SizeT, name:cpp.ConstCharStar):Int;
+			
+			if (!bytecode) {
+				lua_pushfstring(L, "cannot compile %s", filename);
+				return LUA_ERRSYNTAX;
+			}
+			
+			// Load the bytecode
+			int result = luau_load(L, filename, bytecode, bytecodeSize, 0);
+			free(bytecode);
+			return result;
+		');
+		return Lua.ERRERR; // This line should not be reached
+	}
 
 	/**
 	 * Loads a string for Luau, requires separate compilation step via luau_compile.

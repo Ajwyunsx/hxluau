@@ -916,9 +916,10 @@ extern class Lua
 	 *
 	 * @param L The Lua state.
 	 * @param fn The C function to push.
+	 * @param debugname The debug name for the function.
 	 */
 	@:native('lua_pushcfunction')
-	static function pushcfunction(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction):Void;
+	static function pushcfunction(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction, debugname:cpp.ConstCharStar):Void;
 
 	/**
 	 * Get the length of the value at the given index.

@@ -20,7 +20,7 @@ class Main
 		LuaL.openlibs(vm);
 
 		/* register our function */
-		Lua.pushcfunction(vm, cpp.Function.fromStaticFunction(average));
+		Lua.pushcfunction(vm, cpp.Function.fromStaticFunction(average), "average");
 		Lua.setglobal(vm, "average");
 
 		/* run the script */
