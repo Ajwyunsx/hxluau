@@ -18,32 +18,32 @@ extern class Lua
 	/**
 	 * The version string of Lua.
 	 */
-	@:native('::String(LUA_VERSION)')
-	static var VERSION:String;
+	@:native('::String("Luau")')
+	static var VERSION(default, null):String;
 
 	/**
 	 * The release string of Lua.
 	 */
-	@:native('::String(LUA_RELEASE)')
-	static var RELEASE:String;
+	@:native('::String("Luau")')
+	static var RELEASE(default, null):String;
 
 	/**
 	 * The version number of Lua.
 	 */
-	@:native('LUA_VERSION_NUM')
-	static var VERSION_NUM:Int;
+	@:native('501')
+	static var VERSION_NUM(default, null):Int;
 
 	/**
 	 * The copyright information of Lua.
 	 */
-	@:native('::String(LUA_COPYRIGHT)')
-	static var COPYRIGHT:String;
+	@:native('::String("Copyright (C) 2019-2022 Roblox Corporation. Copyright (C) 1994-2022 Lua.org, PUC-Rio.")')
+	static var COPYRIGHT(default, null):String;
 
 	/**
 	 * The authors of Lua.
 	 */
-	@:native('::String(LUA_AUTHORS)')
-	static var AUTHORS:String;
+	@:native('::String("Roblox Corporation. Lua.org, PUC-Rio.")')
+	static var AUTHORS(default, null):String;
 
 	/**
 	 * Return multiple results.
@@ -896,7 +896,7 @@ extern class Lua
 	 * @param name The name of the function.
 	 * @param f The function to register.
 	 */
-	@:native('lua_register')
+	@:native('luaL_register')
 	static function register(L:cpp.RawPointer<Lua_State>, name:cpp.ConstCharStar, f:Lua_CFunction):Void;
 
 	/**

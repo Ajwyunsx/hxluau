@@ -391,8 +391,13 @@ extern class LuaL
 	 * @param filename The name of the file.
 	 * @return The result of the execution.
 	 */
-	@:native('luaL_dofile')
-	static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
+	static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
+		final result = loadfile(L, filename);
+		if (result == 0) {
+			return Lua.pcall(L, 0, LUA_MULTRET, 0);
+		}
+		return result;
+	}
 
 	/**
 	 * Executes a string.
@@ -401,8 +406,13 @@ extern class LuaL
 	 * @paramstr The string to execute.
 	 * @return The result of the execution.
 	 */
-	@:native('luaL_dostring')
-	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int;
+	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int {
+		final result = loadstring(L, str);
+		if (result == 0) {
+			return Lua.pcall(L, 0, LUA_MULTRET, 0);
+		}
+		return result;
+	}
 
 	/**
 	 * Gets the metatable for a name.
@@ -529,8 +539,12 @@ extern class LuaL
 	 * @param filename The name of the file to load.
 	 * @return The result of the load operation.
 	 */
-	@:native('luaL_loadfile')
-	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
+	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
+		// This is a simplified implementation that would need to be expanded
+		// to read the file content and compile it using LuauVM.compile
+		// For now, we'll return an error to indicate this function needs implementation
+		return Lua.ERRERR;
+	}
 
 	/**
 	 * Loads a buffer for Luau, requires separate compilation step via luau_compile.
@@ -541,8 +555,15 @@ extern class LuaL
 	 * @param name The name of the buffer.
 	 * @return The result of the load operation.
 	 */
-	@:native('luaL_loadbuffer')
-	static function loadbuffer(L:cpp.RawPointer<Lua_State>, buff:cpp.ConstCharStar, sz:cpp.SizeT, name:cpp.ConstCharStar):Int;
+	static function loadbuffer(L:cpp.RawPointer<Lua_State>, buff:cpp.ConstCharStar, sz:cpp.SizeT, name:cpp.ConstCharStar):Int {
+		final bytecodeSize:cpp.SizeT = 0;
+		final bytecode = LuauVM.compile(buff, sz, null, cpp.RawPointer.addressOf(bytecodeSize));
+		if (bytecode == null) {
+			return Lua.ERRERR;
+		}
+		final result = LuauVM.load(L, name, bytecode, bytecodeSize, 0);
+		return result;
+	}
 
 	/**
 	 * Loads a string for Luau, requires separate compilation step via luau_compile.
@@ -551,6 +572,7 @@ extern class LuaL
 	 * @param s The string to load.
 	 * @return The result of the load operation.
 	 */
-	@:native('luaL_loadstring')
-	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int;
+	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int {
+		return loadbuffer(L, s, cpp.String.length(s), "string");
+	}
 }
