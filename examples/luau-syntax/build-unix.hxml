@@ -1,13 +1,19 @@
 # HXML file for building the Luau syntax example
 
 # Set the main class
--main examples/luau-syntax/Main.hx
+-main Main
 
-# Set the output executable name
+# Add the current directory to class path
+-cp .
+
+# Set the output directory
 -cpp bin
-
-# Add the source directory
--sd source
 
 # Add hxcpp library
 -lib hxcpp
+
+# Copy script file to output directory
+-cmd cp script.lua bin/script.lua
+
+# Run the executable
+-cmd bin/Main

@@ -20,7 +20,8 @@ class Main
 		LuaL.openlibs(vm);
 
 		/* register our function */
-		Lua.register(vm, "print", cpp.Function.fromStaticFunction(print));
+		Lua.pushcfunction(vm, cpp.Function.fromStaticFunction(print));
+		Lua.setglobal(vm, "print");
 
 		/* run the script */
 		LuaL.dofile(vm, "script.lua");

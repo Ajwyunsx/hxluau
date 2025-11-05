@@ -539,7 +539,6 @@ extern class LuaL
 	 * @param filename The name of the file to load.
 	 * @return The result of the load operation.
 	 */
-	@:native("luaL_loadfile")
 	@:functionCode('
 		FILE* file = fopen(filename, "rb");
 		if (!file) {
