@@ -591,6 +591,22 @@ extern class LuaL
 	 * @return The result of the load operation.
 	 */
 	inline static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int {
-		return LuauVM.load(L, "string", LuauVM.compile(s, cpp.String.length(s), null, null), cpp.String.length(s), 0);
+		// We need to determine the correct approach to get string length in C++
+		untyped __cpp__('
+			size_t s_len = strlen({0});
+			size_t bytecodeSize;
+			char* bytecode = luau_compile({0}, s_len, NULL, &bytecodeSize);
+			
+			if (!bytecode) {
+				lua_pushfstring({1}, "cannot compile string");
+				return LUA_ERRSYNTAX;
+			}
+			
+			// Load the bytecode
+			int result = luau_load({1}, "string", bytecode, bytecodeSize, 0);
+			free(bytecode);
+			return result;
+		', s, L);
+		return Lua.ERRERR; // This line should not be reached
 	}
 }
