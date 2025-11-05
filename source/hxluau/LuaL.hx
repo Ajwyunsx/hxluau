@@ -393,9 +393,9 @@ extern class LuaL
 	 */
 	inline static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
 		untyped __cpp__('
-			FILE* file = fopen(filename, "rb");
+			FILE* file = fopen({0}, "rb");
 			if (!file) {
-				lua_pushfstring(L, "cannot open %s", filename);
+				lua_pushfstring({1}, "cannot open %s", {0});
 				return LUA_ERRFILE;
 			}
 			
@@ -406,7 +406,7 @@ extern class LuaL
 			char* buffer = (char*)malloc(size);
 			if (!buffer) {
 				fclose(file);
-				lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
+				lua_pushfstring({1}, "cannot allocate %d bytes for file %s", (int)size, {0});
 				return LUA_ERRMEM;
 			}
 			
@@ -415,7 +415,7 @@ extern class LuaL
 			
 			if (read != size) {
 				free(buffer);
-				lua_pushfstring(L, "cannot read %s", filename);
+				lua_pushfstring({1}, "cannot read %s", {0});
 				return LUA_ERRFILE;
 			}
 			
@@ -425,22 +425,22 @@ extern class LuaL
 			free(buffer);
 			
 			if (!bytecode) {
-				lua_pushfstring(L, "cannot compile %s", filename);
+				lua_pushfstring({1}, "cannot compile %s", {0});
 				return LUA_ERRSYNTAX;
 			}
 			
 			// Load the bytecode
-			int result = luau_load(L, filename, bytecode, bytecodeSize, 0);
+			int result = luau_load({1}, {0}, bytecode, bytecodeSize, 0);
 			free(bytecode);
 			
 			// If load was successful, call the function
 			if (result == 0) {
-				result = lua_pcall(L, 0, LUA_MULTRET, 0);
+				result = lua_pcall({1}, 0, LUA_MULTRET, 0);
 			}
 			
 			return result;
-		');
-		return Lua.ERRERR; // This line should not be reached
+		', filename, L);
+		return 0; // This line should not be reached
 	}
 
 	/**
