@@ -1,0 +1,13 @@
+# HXML file for building the Luau syntax example
+
+# Set the main class
+-main examples/luau-syntax/Main.hx
+
+# Set the output executable name
+-cpp bin
+
+# Add the source directory
+-sd source
+
+# Add hxcpp library
+-lib hxcpp

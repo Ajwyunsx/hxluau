@@ -1,15 +1,15 @@
 {
-	"name": "hxluajit",
-	"url": "https://github.com/MAJigsaw77/hxluajit",
+	"name": "hxluau",
+	"url": "https://github.com/luau-lang/luau",
 	"license": "MIT",
 	"tags": [
 		"cpp",
-		"luajit",
+		"luau",
 		"haxe"
 	],
-	"description": "Haxe/hxcpp @:native bindings for LuaJIT.",
-	"version": "1.0.5",
-	"releasenote": "Some improvements and updated LuaJIT libs.",
+	"description": "Haxe/hxcpp @:native bindings for Luau.",
+	"version": "1.0.0",
+	"releasenote": "Initial release with Luau bindings.",
 	"contributors": [
 		"MAJigsaw77"
 	],

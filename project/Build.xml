@@ -3,45 +3,45 @@
 	<pragma once="true" />
 
 	<files id="haxe">
-		<compilerflag value="-I${haxelib:hxluajit}/project/luajit/include" />
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
 	</files>
 
 	<files id="__main__">
-		<compilerflag value="-I${haxelib:hxluajit}/project/luajit/include" />
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
 	</files>
 
 	<target id="haxe">
 		<flag value="-fstack-protector" if="mingw" />
 
 		<section if="mingw">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/MinGW/libluajit.a" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/MinGW/libluau.a" if="HXCPP_M64" />
 		</section>
 
 		<section if="windows" unless="mingw">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/Windows/lua51.lib" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/luau.lib" if="HXCPP_M64" />
 		</section>
 
 		<section if="macos">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/MacOS/libluajit.a" if="HXCPP_M64 || HXCPP_ARM64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/MacOS/libluau.a" if="HXCPP_M64 || HXCPP_ARM64" />
 		</section>
 
 		<section if="linux">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/Linux/libluajit.a" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/libluau.a" if="HXCPP_M64" />
 		</section>
 
 		<section if="android">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/Android/libluajit-arm64.a" if="HXCPP_ARM64" />
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/Android/libluajit-armv7a.a" if="HXCPP_ARMV7" />
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/Android/libluajit-x86.a" if="HXCPP_X86" />
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/Android/libluajit-x86_64.a" if="HXCPP_X86_64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-arm64.a" if="HXCPP_ARM64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-armv7a.a" if="HXCPP_ARMV7" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-x86.a" if="HXCPP_X86" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-x86_64.a" if="HXCPP_X86_64" />
 		</section>
 
 		<section if="iphoneos">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/iOS/libluajit_device.a" if="HXCPP_ARM64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/iOS/libluau_device.a" if="HXCPP_ARM64" />
 		</section>
 
 		<section if="iphonesim">
-			<lib name="${haxelib:hxluajit}/project/luajit/lib/iOS/libluajit_sim.a" if="HXCPP_ARM64 || HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/iOS/libluau_sim.a" if="HXCPP_ARM64 || HXCPP_M64" />
 		</section>
 	</target>
 </xml>

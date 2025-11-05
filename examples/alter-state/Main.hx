@@ -1,9 +1,9 @@
 package;
 
-import hxluajit.Lua;
-import hxluajit.LuaJIT;
-import hxluajit.LuaL;
-import hxluajit.Types;
+import hxluau.Lua;
+
+import hxluau.LuaL;
+import hxluau.Types;
 
 class Main
 {
@@ -11,7 +11,7 @@ class Main
 	{
 		/* version info */
 		Sys.println(Lua.VERSION);
-		Sys.println(LuaJIT.VERSION);
+		
 
 		/* initialize Lua */
 		var vm:cpp.RawPointer<Lua_State> = LuaL.newstate();
