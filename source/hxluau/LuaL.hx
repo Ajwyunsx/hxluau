@@ -391,7 +391,7 @@ extern class LuaL
 	 * @param filename The name of the file.
 	 * @return The result of the execution.
 	 */
-	static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
+	inline static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
 		// For Luau, we'll implement this in the C++ layer via haxe cpp implementation
 		// We need to return an error since luaL_loadfile doesn't exist in Luau
 		return Lua.ERRERR;

@@ -20,7 +20,7 @@ class Main
 		LuaL.openlibs(vm);
 
 		/* run the script */
-		LuaL.dofile(vm, "script.lua");
+		LuaL.dostring(vm, sys.io.File.getContent("script.lua"));
 
 		final stack:Int = Lua.gettop(vm);
 

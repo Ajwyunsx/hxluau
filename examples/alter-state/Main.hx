@@ -29,7 +29,7 @@ class Main
 		}
 
 		/* run the script */
-		LuaL.dofile(vm, "script.lua");
+		LuaL.dostring(vm, sys.io.File.getContent("script.lua"));
 
 		/* cleanup Lua */
 		Lua.close(vm);
