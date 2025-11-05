@@ -12,7 +12,7 @@ haxelib install hxluau
 ```
 Or through `Git`, if you want the latest updates
 ```bash
-haxelib git hxluau https://github.com/luau-lang/luau.git
+haxelib git hxluau https://github.com/Ajwyunsx/hxluau.git
 ```
 
 ### Usage Example
