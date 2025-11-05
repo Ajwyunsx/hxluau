@@ -391,56 +391,10 @@ extern class LuaL
 	 * @param filename The name of the file.
 	 * @return The result of the execution.
 	 */
-	inline static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
-		untyped __cpp__('
-			FILE* file = fopen({0}, "rb");
-			if (!file) {
-				lua_pushfstring({1}, "cannot open %s", {0});
-				return LUA_ERRFILE;
-			}
-			
-			fseek(file, 0, SEEK_END);
-			size_t size = ftell(file);
-			fseek(file, 0, SEEK_SET);
-			
-			char* buffer = (char*)malloc(size);
-			if (!buffer) {
-				fclose(file);
-				lua_pushfstring({1}, "cannot allocate %d bytes for file %s", (int)size, {0});
-				return LUA_ERRMEM;
-			}
-			
-			size_t read = fread(buffer, 1, size, file);
-			fclose(file);
-			
-			if (read != size) {
-				free(buffer);
-				lua_pushfstring({1}, "cannot read %s", {0});
-				return LUA_ERRFILE;
-			}
-			
-			// Compile using Luau
-			size_t bytecodeSize;
-			char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
-			free(buffer);
-			
-			if (!bytecode) {
-				lua_pushfstring({1}, "cannot compile %s", {0});
-				return LUA_ERRSYNTAX;
-			}
-			
-			// Load the bytecode
-			int result = luau_load({1}, {0}, bytecode, bytecodeSize, 0);
-			free(bytecode);
-			
-			// If load was successful, call the function
-			if (result == 0) {
-				result = lua_pcall({1}, 0, LUA_MULTRET, 0);
-			}
-			
-			return result;
-		', filename, L);
-		return 0; // This line should not be reached
+	static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
+		// For Luau, we'll implement this in the C++ layer via haxe cpp implementation
+		// We need to return an error since luaL_loadfile doesn't exist in Luau
+		return Lua.ERRERR;
 	}
 
 	/**
