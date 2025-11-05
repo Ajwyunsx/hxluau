@@ -23,6 +23,6 @@ Check out the [Examples Folder](examples/) for examples on how to use this libra
 
 **hxluau** is made available under the **MIT License**. Check [LICENSE](./LICENSE) for more information.
 
-![](https://avatars.githubusercontent.com/u/11773774?s=200&v=4)
+![](https://avatars.githubusercontent.com/u/104525888?s=200&v=4)
 
 **Luau** is made available under the **MIT License**. Check [Luau's Licence](https://github.com/luau-lang/luau/blob/master/LICENSE.txt) for more information.
