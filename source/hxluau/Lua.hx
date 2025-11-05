@@ -260,6 +260,18 @@ extern class Lua
 	static function replace(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
 
 	/**
+	 * Copy a value from one index to another.
+	 *
+	 * @param L The Lua state.
+	 * @param fromidx The index of the value to copy.
+	 * @param toidx The index where the value should be copied to.
+	 */
+	inline static function copy(L:cpp.RawPointer<Lua_State>, fromidx:Int, toidx:Int):Void {
+		pushvalue(L, fromidx);
+		replace(L, toidx);
+	}
+
+	/**
 	 * Check the stack size.
 	 *
 	 * @param L The Lua state.
