@@ -539,7 +539,49 @@ extern class LuaL
 	 * @param filename The name of the file to load.
 	 * @return The result of the load operation.
 	 */
-	@:native('luaL_loadfile')
+	@:native("luaL_loadfile")
+	@:functionCode('
+		FILE* file = fopen(filename, "rb");
+		if (!file) {
+			lua_pushfstring(L, "cannot open %s", filename);
+			return LUA_ERRFILE;
+		}
+		
+		fseek(file, 0, SEEK_END);
+		size_t size = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		
+		char* buffer = (char*)malloc(size);
+		if (!buffer) {
+			fclose(file);
+			lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
+			return LUA_ERRMEM;
+		}
+		
+		size_t read = fread(buffer, 1, size, file);
+		fclose(file);
+		
+		if (read != size) {
+			free(buffer);
+			lua_pushfstring(L, "cannot read %s", filename);
+			return LUA_ERRFILE;
+		}
+		
+		// Compile using Luau
+		size_t bytecodeSize;
+		char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
+		free(buffer);
+		
+		if (!bytecode) {
+			lua_pushfstring(L, "cannot compile %s", filename);
+			return LUA_ERRSYNTAX;
+		}
+		
+		// Load the bytecode
+		int result = luau_load(L, filename, bytecode, bytecodeSize, 0);
+		free(bytecode);
+		return result;
+	')
 	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
 
 	/**
