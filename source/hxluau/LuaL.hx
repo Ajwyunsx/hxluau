@@ -10,7 +10,6 @@ import hxluau.Types;
  */
 @:buildXml('<include name="${haxelib:hxluau}/project/Build.xml" />')
 @:include('lua.h')
-@:include('lauxlib.h')
 @:include('lualib.h')
 @:include('luacode.h')
 @:unreflective
