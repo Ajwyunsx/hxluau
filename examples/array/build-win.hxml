@@ -1,7 +1,7 @@
 -cp ./
 -D analyzer-optimize
 -D HXCPP_M64
--lib hxluajit
+-lib hxluau
 -main Main
 -cpp bin
 -cmd xcopy script.lua bin\ /Y /Q >nul 2>&1
