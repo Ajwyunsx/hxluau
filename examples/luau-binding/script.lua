@@ -1,4 +1,4 @@
-print("Luau Binding Example Script")
+print("=== Luau Binding Example ===")
 
 -- 基本运算
 local a = 10
@@ -13,10 +13,19 @@ for i, fruit in ipairs(fruits) do
     print("  " .. i .. ". " .. fruit)
 end
 
--- 函数调用
+-- 函数调用测试
 function greet(name)
     return "Hello, " .. name .. "!"
 end
 
 local message = greet("Luau User")
 print(message)
+
+-- 测试 Haxe 函数调用
+local addResult = myAdd(5, 3)
+print("myAdd(5, 3) = " .. addResult)
+
+local greetResult = myGreet("World")
+print("myGreet('World') = " .. greetResult)
+
+print("=== Example completed ===")
