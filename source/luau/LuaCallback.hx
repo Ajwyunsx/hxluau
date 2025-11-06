@@ -44,5 +44,5 @@ class LuaCallback {
 	}
 
 	public function dispose()
-		LuaL.unref(L, Lua.REGISTRYINDEX, ref);
+		Lua.unref(L, Lua.REGISTRYINDEX, ref);
 }
