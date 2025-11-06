@@ -98,7 +98,11 @@ jobs:
             if [ "${{ matrix.arch }}" = "arm64" ]; then
               sudo apt-get update
               sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
-              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_AR=aarch64-linux-gnu-ar
+              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+                -DCMAKE_AR=/usr/bin/aarch64-linux-gnu-ar \
+                -DCMAKE_RANLIB=/usr/bin/aarch64-linux-gnu-ranlib
             else
               cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
             fi
