@@ -19,7 +19,7 @@ class Main {
         
         // 计算所有参数的和
         for (i in 0...n) {
-            if (Lua.isnumber(L, i + 1) != 1)
+            if (Lua.isnumber(L, i + 1) == 0)
                 LuaL.error(L, "Incorrect argument to 'myAdd'");
             sum += Lua.tonumber(L, i + 1);
         }
