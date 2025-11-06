@@ -30,6 +30,7 @@ jobs:
               run: |
                   echo Verifying prebuilt library exists: project\luau\lib\Windows\x64\luau.lib
                   set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  setlocal EnableDelayedExpansion
                   set NEED=0
                   if not exist "%LIB%" (
                       echo Prebuilt luau.lib missing.
@@ -42,13 +43,15 @@ jobs:
                       )
                       rem Check file size (pointer files are very small, < 1KB)
                       for %%A in ("%LIB%") do set SIZE=%%~zA
-                      echo luau.lib size: %SIZE% bytes
-                      if not "%SIZE%"=="" if %SIZE% LSS 1024 (
-                          echo Library looks too small; flagging rebuild.
-                          set NEED=1
+                      echo luau.lib size: !SIZE! bytes
+                      if not "!SIZE!"=="" (
+                          if !SIZE! LSS 1024 (
+                              echo Library looks too small; flagging rebuild.
+                              set NEED=1
+                          )
                       )
                       rem Validate COFF with dumpbin; if it errors, mark rebuild
-                      if %NEED%==0 (
+                      if !NEED! EQU 0 (
                           dumpbin /headers "%LIB%" >nul 2>&1
                           if errorlevel 1 (
                               echo dumpbin failed; luau.lib may be invalid.
@@ -58,7 +61,7 @@ jobs:
                           )
                       )
                   )
-                  echo NEED_BUILD=%NEED%>> "%GITHUB_ENV%"
+                  echo NEED_BUILD=!NEED!>> "%GITHUB_ENV%"
 
             - name: Download prebuilt Luau artifact (Windows x64)
               if: env.NEED_BUILD == '1'
