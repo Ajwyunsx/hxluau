@@ -5,6 +5,8 @@
 	<files id="haxe">
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
 		<compilerflag value="-I${haxelib:hxluau}/source" />
+		<!-- Ensure wrapper implementations are compiled into the target -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
 	</files>
 
 	<files id="__main__">
@@ -27,6 +29,9 @@
 
 		<section if="windows">
 			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/luau.lib" if="HXCPP_M64" />
+			<!-- Link Universal CRT and runtime on MSVC to satisfy __imp_* references -->
+			<lib name="ucrt.lib" if="HXCPP_M64" />
+			<lib name="vcruntime.lib" if="HXCPP_M64" />
 		</section>
 
 		<section if="macos">
