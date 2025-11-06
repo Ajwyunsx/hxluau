@@ -1,6 +1,6 @@
 {
 	"name": "hxluau",
-	"url": "https://github.com/luau-lang/luau",
+	"url": "https://github.com/Ajwyunsx/hxluau",
 	"license": "MIT",
 	"tags": [
 		"cpp",
@@ -11,7 +11,7 @@
 	"version": "1.0.0",
 	"releasenote": "Initial release with Luau bindings.",
 	"contributors": [
-		"MAJigsaw77"
+		"Ajwyunsx"
 	],
 	"classPath": "source",
 	"dependencies": {
