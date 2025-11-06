@@ -3,7 +3,6 @@ package;
 import luau.Lua;
 import luau.LuaL;
 import luau.State;
-import hxluau.LuaOpen;
 import hxluau.Types;
 import cpp.Callable;
 
@@ -24,7 +23,6 @@ class Main {
             sum += Lua.tonumber(L, i + 1);
         }
         
-        Lua.pop(L, n); // 清除堆栈
         Lua.pushnumber(L, sum); // 推入结果
         return 1; // 返回结果数量
     }
@@ -34,7 +32,7 @@ class Main {
             LuaL.error(L, "Not enough arguments to 'myGreet'");
         }
         
-        var name = LuaL.checkstring(L, 1);
+        var name = cast(LuaL.checkstring(L, 1), String);
         var greeting = "Hello, " + name + "!";
         Lua.pushstring(L, greeting);
         return 1;
@@ -51,6 +49,10 @@ class Main {
         
         // 初始化回调函数，确保 print 函数被正确注册
         Lua.init_callbacks(L);
+        
+        // 注册 Haxe 函数到 Luau
+        Lua.register(L, "myAdd", cpp.Callable.fromStaticFunction(myAddFunction));
+        Lua.register(L, "myGreet", cpp.Callable.fromStaticFunction(myGreetFunction));
         
         // 读取并运行脚本文件
         Sys.println("\n--- Running Luau script from file ---");

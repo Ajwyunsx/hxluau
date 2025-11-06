@@ -234,8 +234,12 @@ extern class Lua {
     static inline function print(L:cpp.RawPointer<Lua_State>):Int {
         final nargs:Int = Lua.gettop(L);
 
-        for (i in 0...nargs)
-            Sys.println(cast(Lua.tostring(L, i + 1), String));
+        for (i in 0...nargs) {
+            final str = Lua.tostring(L, i + 1);
+            if (str != null) {
+                Sys.println(cast(str, String));
+            }
+        }
 
         Lua.pop(L, nargs);
         return 0;
