@@ -1,6 +1,10 @@
 name: Build Luau Libraries
 
-on: workflow_dispatch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 # Grant write permissions to GITHUB_TOKEN so the workflow can push commits
 permissions:
@@ -107,15 +111,19 @@ jobs:
 
           cmake --build . --config Release
 
-          # Combine Luau libs into a single static library
+          # Combine Luau libs into a single static library (recursive)
+          echo "Listing libLuau.*.a recursively:"
+          find . -name 'libLuau.*.a' -type f -print
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
-            libtool -static -o libluau.a libLuau.*.a
+            libs=$(find . -name 'libLuau.*.a' -type f)
+            if [ -z "$libs" ]; then
+              echo "No libLuau.*.a found"; exit 1
+            fi
+            libtool -static -o libluau.a $libs
             ranlib libluau.a
           else
             echo "create libluau.a" > combine.mri
-            for f in libLuau.*.a; do
-              if [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
-            done
+            find . -name 'libLuau.*.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
             echo "save" >> combine.mri
             echo "end" >> combine.mri
             ar -M < combine.mri
@@ -151,11 +159,19 @@ jobs:
           cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
           cmake --build . --config Release
 
-          REM Combine Luau libraries into one
+          REM Combine Luau libraries into one (recursive)
+          echo Listing Luau.*.lib recursively:
+          for /r %%f in (Luau.*.lib) do echo %%f
+
           setlocal EnableDelayedExpansion
           set FILES=
-          for %%f in (Luau.*.lib) do set FILES=!FILES! %%f
+          for /r %%f in (Luau.*.lib) do set FILES=!FILES! "%%f"
+          if "!FILES!"=="" (
+            echo No Luau.*.lib found. Failing.
+            exit /b 1
+          )
           lib.exe /OUT:luau.lib !FILES!
+          if errorlevel 1 exit /b %errorlevel%
 
           REM Copy to built_lib
           mkdir ..\built_lib
@@ -238,11 +254,11 @@ jobs:
 
           cmake --build . --config Release
 
-          # Combine Luau libraries into one output per ABI
+          # Combine Luau libraries into one output per ABI (recursive)
+          echo "Listing libLuau.*.a recursively:"
+          find . -name 'libLuau.*.a' -type f -print
           echo "create ${{ matrix.lib_name }}" > combine.mri
-          for f in libLuau.*.a; do
-            if [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
-          done
+          find . -name 'libLuau.*.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
           echo "save" >> combine.mri
           echo "end" >> combine.mri
           ar -M < combine.mri
@@ -302,8 +318,12 @@ jobs:
 
           cmake --build . --config Release
 
-          # Combine Luau libraries
-          libtool -static -o "${{ matrix.lib_name }}" libLuau.*.a
+          # Combine Luau libraries (recursive)
+          libs=$(find . -name 'libLuau.*.a' -type f)
+          if [ -z "$libs" ]; then
+            echo "No libLuau.*.a found"; exit 1
+          fi
+          libtool -static -o "${{ matrix.lib_name }}" $libs
           ranlib "${{ matrix.lib_name }}"
 
           mkdir -p ../built_lib
@@ -428,6 +448,7 @@ jobs:
           fi
 
       - name: Commit and push libraries
+        if: github.event_name == 'push'
         run: |
           git lfs install
           # Ensure LFS tracks library file types
@@ -442,6 +463,4 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin main || echo "No changes to push"
         env:
-
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
