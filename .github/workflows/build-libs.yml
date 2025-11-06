@@ -56,8 +56,6 @@ jobs:
       - name: Build Luau library (Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
-          mkdir -p project/luau/lib/${{ matrix.target }}
-          
           # Navigate to Luau source directory
           cd project/luau
           
@@ -83,19 +81,14 @@ jobs:
             ar rcs libluau.a libLuau.Analysis.a libLuau.Ast.a libLuau.CodeGen.a libLuau.Compiler.a libLuau.Config.a libLuau.VM.a libLuau.EqSat.a libLuau.Require.a libLuau.CLI.lib.a
           fi
           
-          # Copy the combined library to the correct location
+          # Create target directory and copy the combined library to the correct location
+          mkdir -p ../../../../project/luau/lib/${{ matrix.target }}
           cp libluau.a ../../../../project/luau/lib/${{ matrix.target }}/libluau.a
         shell: bash
 
       - name: Build Luau library (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          # Remove existing incomplete Luau source
-          rmdir /s /q project\luau
-          
-          # Clone official Luau repository
-          git clone https://github.com/luau-lang/luau.git project/luau
-          
           # Navigate to Luau source directory
           cd project\luau
           
@@ -111,7 +104,8 @@ jobs:
           # Use lib.exe to combine all Luau libraries into one
           lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib.lib
           
-          # Copy the combined library to the correct location
+          # Create target directory and copy the combined library to the correct location
+          mkdir ..\..\..\project\luau\lib\${{ matrix.target }}
           copy luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
         shell: cmd
 
