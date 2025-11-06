@@ -72,11 +72,7 @@ jobs:
           cmake --build . --config Release
           
           # Copy the library to the correct location
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cp libluau.a ../../../../project/luau/lib/${{ matrix.target }}/libluau.a
-          else
-            cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
-          fi
+          cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
         shell: bash
 
       - name: Build Luau library (Windows)
@@ -91,14 +87,14 @@ jobs:
           # Navigate to Luau source directory
           cd project\luau
           
-          # Build with CMake
+          # Build with CMake using Ninja generator (more portable)
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 16 2019" -A x64
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
           cmake --build . --config Release
           
           # Copy the library to the correct location
-          copy Release\luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
+          copy luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
         shell: cmd
 
       - name: Upload Luau libraries
