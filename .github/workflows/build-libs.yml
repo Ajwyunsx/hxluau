@@ -49,7 +49,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: true
-          lfs: false
+          lfs: true
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1.14
@@ -141,6 +141,22 @@ jobs:
           ls -la "$GITHUB_WORKSPACE/project/luau/built_lib/"
         shell: bash
 
+      - name: Validate Unix library (Linux/macOS)
+        if: matrix.platform == 'Linux' || matrix.platform == 'MacOS'
+        run: |
+          set -e
+          cd project/luau/built_lib
+          if [ ! -f "libluau.a" ]; then
+            echo "ERROR: libluau.a not found after build"
+            ls -la
+            exit 1
+          fi
+          # Basic validation: ar can list members
+          ar -t libluau.a > /dev/null || { echo "ERROR: 'ar' failed to read libluau.a"; exit 1; }
+          # Optional: print file type for debugging
+          command -v file >/dev/null 2>&1 && file -b libluau.a || true
+        shell: bash
+
       - name: Build Luau library (Windows)
         if: matrix.platform == 'Windows'
         run: |
@@ -183,6 +199,26 @@ jobs:
           echo Files in built_lib directory (from repo root):
           dir "%GITHUB_WORKSPACE%\project\luau\built_lib\"
         shell: cmd
+
+      - name: Validate Windows library (luau.lib)
+        if: matrix.platform == 'Windows'
+        shell: cmd
+        run: |
+          setlocal EnableDelayedExpansion
+          cd project\luau\built_lib
+          if not exist "luau.lib" (
+            echo ERROR: luau.lib not found after build
+            dir
+            exit /b 1
+          )
+          rem Authoritative validation: lib.exe can list members
+          lib.exe /NOLOGO /LIST "luau.lib" >nul 2>&1
+          if errorlevel 1 (
+            echo ERROR: lib.exe failed to read luau.lib; invalid or corrupt.
+            exit /b 1
+          )
+          rem Optional: dumpbin headers if available
+          where dumpbin >nul 2>&1 && dumpbin /headers "luau.lib" >nul 2>&1
 
       - name: Upload built libraries
         uses: actions/upload-artifact@v4
@@ -344,6 +380,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
