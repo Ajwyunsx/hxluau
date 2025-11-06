@@ -35,6 +35,10 @@ processValue("Hello")
 processValue(42)
 processValue({x = 1, y = 2})
 
+local a = 1
+a += 20
+print(a)
+
 -- Luau 索引器类型 (模拟)
 local config: {[string]: any} = {
 	theme = "dark",
