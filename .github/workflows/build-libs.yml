@@ -49,6 +49,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: true
+          lfs: false
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1.14
@@ -198,6 +199,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1.14
@@ -275,6 +278,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: false
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1.14

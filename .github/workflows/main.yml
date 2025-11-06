@@ -20,13 +20,46 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
-
-            - name: Setup Git LFS
-              run: git lfs install
+                  lfs: false
 
             - name: Setup MSVC Build Tools
               uses: ilammy/msvc-dev-cmd@v1
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v1.14
+              with:
+                  cmake-version: '3.22.x'
+
+            - name: Setup Ninja (Windows)
+              uses: seanmiddleditch/gha-setup-ninja@v4
+
+            - name: Build Luau library (Windows x64)
+              shell: cmd
+              run: |
+                  REM Clean existing source
+                  rmdir /s /q project\luau 2>nul
+
+                  REM Clone official Luau repository
+                  git clone https://github.com/luau-lang/luau.git project\luau
+
+                  REM Build with CMake using Ninja generator
+                  cd project\luau
+                  mkdir build
+                  cd build
+                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+                  cmake --build . --config Release
+
+                  REM Combine Luau libraries into one
+                  setlocal EnableDelayedExpansion
+                  set FILES=
+                  for %%f in (Luau.*.lib) do set FILES=!FILES! %%f
+                  lib.exe /OUT:luau.lib !FILES!
+
+                  REM Place into expected path for hxcpp linking
+                  mkdir ..\built_lib
+                  copy luau.lib ..\built_lib\luau.lib
+                  mkdir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64"
+                  copy "..\built_lib\luau.lib" "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
@@ -49,15 +82,48 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
-
-            - name: Setup Git LFS
-              run: git lfs install
+                  lfs: false
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
               with:
                   haxe-version: 4.3.6
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v1.14
+              with:
+                  cmake-version: '3.22.x'
+
+            - name: Setup Ninja
+              uses: ashutoshvarma/setup-ninja@v1.1
+              with:
+                  version: 1.11.1
+
+            - name: Build Luau library (Linux x64)
+              shell: bash
+              run: |
+                  set -e
+                  rm -rf project/luau
+                  git clone https://github.com/luau-lang/luau.git project/luau
+                  cd project/luau
+                  mkdir -p build
+                  cd build
+                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+                  cmake --build . --config Release
+
+                  echo "create libluau.a" > combine.mri
+                  for f in libLuau.*.a; do
+                    if [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
+                  done
+                  echo "save" >> combine.mri
+                  echo "end" >> combine.mri
+                  ar -M < combine.mri
+                  ranlib libluau.a
+
+                  mkdir -p ../built_lib
+                  cp libluau.a ../built_lib/libluau.a
+                  mkdir -p "$GITHUB_WORKSPACE/project/luau/lib/Linux/x64"
+                  cp ../built_lib/libluau.a "$GITHUB_WORKSPACE/project/luau/lib/Linux/x64/libluau.a"
 
             - name: Compiling
               run: |
@@ -75,15 +141,37 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
-
-            - name: Setup Git LFS
-              run: git lfs install
+                  lfs: false
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
               with:
                   haxe-version: 4.3.6
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v1.14
+              with:
+                  cmake-version: '3.22.x'
+
+            - name: Build Luau library (macOS x64)
+              shell: bash
+              run: |
+                  set -e
+                  rm -rf project/luau
+                  git clone https://github.com/luau-lang/luau.git project/luau
+                  cd project/luau
+                  mkdir -p build
+                  cd build
+                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+                  cmake --build . --config Release
+
+                  libtool -static -o libluau.a libLuau.*.a
+                  ranlib libluau.a
+
+                  mkdir -p ../built_lib
+                  cp libluau.a ../built_lib/libluau.a
+                  mkdir -p "$GITHUB_WORKSPACE/project/luau/lib/MacOS/x64"
+                  cp ../built_lib/libluau.a "$GITHUB_WORKSPACE/project/luau/lib/MacOS/x64/libluau.a"
 
             - name: Compiling
               run: |
