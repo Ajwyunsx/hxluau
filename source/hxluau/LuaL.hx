@@ -405,7 +405,7 @@ extern class LuaL
 	 * @paramstr The string to execute.
 	 * @return The result of the execution.
 	 */
-	@:native("::hxluau::LuaL_dostring_wrapper")
+	@:native("hxluau_LuaL_dostring_wrapper")
 	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int;
 
 	/**
@@ -533,7 +533,7 @@ extern class LuaL
 	 * @param filename The name of the file to load.
 	 * @return The result of the load operation.
 	 */
-	@:native("::hxluau::LuaL_loadfile_wrapper")
+	@:native("hxluau_LuaL_loadfile_wrapper")
 	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
 
 	/**
@@ -543,6 +543,6 @@ extern class LuaL
 	 * @param s The string to load.
 	 * @return The result of the load operation.
 	 */
-	@:native("::hxluau::LuaL_loadstring_wrapper")
+	@:native("hxluau_LuaL_loadstring_wrapper")
 	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int;
 }
