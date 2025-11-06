@@ -46,14 +46,20 @@ jobs:
                   cd project\luau_src
                   mkdir build
                   cd build
-                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
                   cmake --build . --config Release
 
-                  REM Combine Luau libraries into one
-                  setlocal EnableDelayedExpansion
-                  set FILES=
-                  for %%f in (Luau.*.lib) do set FILES=!FILES! %%f
-                  lib.exe /OUT:luau.lib !FILES!
+                  REM Recursively collect Luau static libs and merge them
+                  del /f /q combine.rsp 2>nul
+                  for /r %%f in (Luau.*.lib) do echo %%f>>combine.rsp
+                  echo Found Luau libs:
+                  type combine.rsp
+                  if not exist combine.rsp (
+                      echo ERROR: No Luau libs found.
+                      dir /s /b *.lib
+                      exit /b 1
+                  )
+                  lib.exe /NOLOGO /OUT:luau.lib @combine.rsp
 
                   REM Place into expected path for hxcpp linking
                   mkdir ..\built_lib
@@ -111,10 +117,13 @@ jobs:
                   cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
                   cmake --build . --config Release
 
+                  # Recursively collect libLuau.*.a and merge
+                  find . -name "libLuau.*.a" -print > libs.txt
+                  echo "Found Luau archives:" && cat libs.txt
                   echo "create libluau.a" > combine.mri
-                  for f in libLuau.*.a; do
-                    if [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
-                  done
+                  while read -r f; do
+                    if [ -n "$f" ] && [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
+                  done < libs.txt
                   echo "save" >> combine.mri
                   echo "end" >> combine.mri
                   ar -M < combine.mri
@@ -165,7 +174,10 @@ jobs:
                   cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
                   cmake --build . --config Release
 
-                  libtool -static -o libluau.a libLuau.*.a
+                  # Recursively collect libLuau.*.a and merge
+                  find . -name "libLuau.*.a" -print > libs.txt
+                  echo "Found Luau archives:" && cat libs.txt
+                  libtool -static -o libluau.a $(cat libs.txt)
                   ranlib libluau.a
 
                   mkdir -p ../built_lib
