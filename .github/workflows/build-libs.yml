@@ -49,7 +49,7 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: true
-          lfs: true
+          lfs: false
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1.14
@@ -381,7 +381,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -485,20 +485,4 @@ jobs:
             echo "No iOS x64 library found"
           fi
 
-      - name: Commit and push libraries
-        if: github.event_name == 'push'
-        run: |
-          git lfs install
-          # Ensure LFS tracks library file types
-          git lfs track "project/luau/lib/**/*.a"
-          git lfs track "project/luau/lib/**/*.lib"
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .gitattributes
-          git add project/luau/lib/
-          git commit -m "Add compiled Luau libraries [skip ci]" || echo "No changes to commit"
-          # Ensure we use the token for pushing
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin main || echo "No changes to push"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Removed commit step to avoid storing binaries via Git LFS and hitting quota

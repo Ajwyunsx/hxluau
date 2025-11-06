@@ -20,7 +20,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
+                  lfs: false
 
             - name: Setup MSVC Build Tools
               uses: ilammy/msvc-dev-cmd@v1
@@ -76,6 +76,7 @@ jobs:
             - name: Place downloaded library (Windows x64)
               if: env.NEED_BUILD == '1'
               shell: cmd
+              continue-on-error: true
               run: |
                   if not exist "_libs_win_x64\luau.lib" (
                       echo ERROR: Downloaded artifact missing luau.lib
@@ -84,6 +85,35 @@ jobs:
                   )
                   mkdir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64" 2>nul
                   copy /Y "_libs_win_x64\luau.lib" "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+
+            - name: Build Luau locally (Windows fallback)
+              if: env.NEED_BUILD == '1'
+              shell: cmd
+              run: |
+                  setlocal EnableDelayedExpansion
+                  set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  if exist "%LIB%" (
+                      echo Library already present, skipping fallback build.
+                  ) else (
+                      echo Building Luau locally as fallback...
+                      rmdir /s /q project\luau 2>nul
+                      git clone https://github.com/luau-lang/luau.git project\luau
+                      cd project\luau
+                      mkdir build
+                      cd build
+                      cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+                      cmake --build . --config Release
+                      set FILES=
+                      for /r %%f in (Luau.*.lib) do set FILES=!FILES! "%%f"
+                      if "!FILES!"=="" (
+                        echo No Luau.*.lib found. Failing.
+                        exit /b 1
+                      )
+                      lib.exe /OUT:luau.lib !FILES!
+                      if errorlevel 1 exit /b %errorlevel%
+                      mkdir ..\lib\Windows\x64 2>nul
+                      copy luau.lib ..\lib\Windows\x64\luau.lib
+                  )
 
             - name: Validate library (Windows x64)
               shell: cmd
@@ -144,7 +174,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
+                  lfs: false
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
@@ -185,6 +215,7 @@ jobs:
             - name: Place downloaded library (Linux x64)
               if: env.NEED_BUILD == '1'
               shell: bash
+              continue-on-error: true
               run: |
                   set -e
                   if [ ! -f "_libs_linux_x64/libluau.a" ]; then
@@ -194,6 +225,32 @@ jobs:
                   fi
                   mkdir -p project/luau/lib/Linux/x64
                   cp -f _libs_linux_x64/libluau.a project/luau/lib/Linux/x64/libluau.a
+
+            - name: Build Luau locally (Linux fallback)
+              if: env.NEED_BUILD == '1'
+              shell: bash
+              run: |
+                set -e
+                LIB="project/luau/lib/Linux/x64/libluau.a"
+                if [ -f "$LIB" ]; then
+                  echo "Library already present, skipping fallback build."
+                else
+                  echo "Building Luau locally as fallback..."
+                  rm -rf project/luau
+                  git clone https://github.com/luau-lang/luau.git project/luau
+                  cd project/luau
+                  mkdir -p build && cd build
+                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+                  cmake --build . --config Release
+                  echo "create libluau.a" > combine.mri
+                  find . -name 'libLuau.*.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+                  echo "save" >> combine.mri
+                  echo "end" >> combine.mri
+                  ar -M < combine.mri
+                  ranlib libluau.a
+                  mkdir -p ../lib/Linux/x64
+                  cp libluau.a ../lib/Linux/x64/libluau.a
+                fi
 
             - name: Compiling
               run: |
@@ -211,7 +268,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
+                  lfs: false
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
@@ -256,11 +313,36 @@ jobs:
             - name: Place downloaded library (macOS arm64)
               if: env.NEED_BUILD == '1' && runner.arch == 'ARM64'
               shell: bash
+              continue-on-error: true
               run: |
                   set -e
                   test -f _libs_macos_arm64/libluau.a || { echo "ERROR: missing libluau.a"; ls -la _libs_macos_arm64 || true; exit 1; }
                   mkdir -p project/luau/lib/MacOS/arm64
                   cp -f _libs_macos_arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
+
+            - name: Build Luau locally (macOS arm64 fallback)
+              if: env.NEED_BUILD == '1' && runner.arch == 'ARM64'
+              shell: bash
+              run: |
+                set -e
+                LIB="project/luau/lib/MacOS/arm64/libluau.a"
+                if [ -f "$LIB" ]; then
+                  echo "Library already present, skipping fallback build."
+                else
+                  echo "Building Luau locally as fallback (arm64)..."
+                  rm -rf project/luau
+                  git clone https://github.com/luau-lang/luau.git project/luau
+                  cd project/luau
+                  mkdir -p build && cd build
+                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+                  cmake --build . --config Release
+                  libs=$(find . -name 'libLuau.*.a' -type f)
+                  if [ -z "$libs" ]; then echo "No libLuau.*.a found"; exit 1; fi
+                  libtool -static -o libluau.a $libs
+                  ranlib libluau.a
+                  mkdir -p ../lib/MacOS/arm64
+                  cp libluau.a ../lib/MacOS/arm64/libluau.a
+                fi
 
             - name: Download prebuilt Luau artifact (macOS x64)
               if: env.NEED_BUILD == '1' && runner.arch == 'X64'
@@ -275,11 +357,36 @@ jobs:
             - name: Place downloaded library (macOS x64)
               if: env.NEED_BUILD == '1' && runner.arch == 'X64'
               shell: bash
+              continue-on-error: true
               run: |
                   set -e
                   test -f _libs_macos_x64/libluau.a || { echo "ERROR: missing libluau.a"; ls -la _libs_macos_x64 || true; exit 1; }
                   mkdir -p project/luau/lib/MacOS/x64
                   cp -f _libs_macos_x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
+
+            - name: Build Luau locally (macOS x64 fallback)
+              if: env.NEED_BUILD == '1' && runner.arch == 'X64'
+              shell: bash
+              run: |
+                set -e
+                LIB="project/luau/lib/MacOS/x64/libluau.a"
+                if [ -f "$LIB" ]; then
+                  echo "Library already present, skipping fallback build."
+                else
+                  echo "Building Luau locally as fallback (x64)..."
+                  rm -rf project/luau
+                  git clone https://github.com/luau-lang/luau.git project/luau
+                  cd project/luau
+                  mkdir -p build && cd build
+                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+                  cmake --build . --config Release
+                  libs=$(find . -name 'libLuau.*.a' -type f)
+                  if [ -z "$libs" ]; then echo "No libLuau.*.a found"; exit 1; fi
+                  libtool -static -o libluau.a $libs
+                  ranlib libluau.a
+                  mkdir -p ../lib/MacOS/x64
+                  cp libluau.a ../lib/MacOS/x64/libluau.a
+                fi
 
             - name: Compiling
               run: |
