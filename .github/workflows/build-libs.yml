@@ -1,0 +1,132 @@
+name: Build Luau Libraries
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-libs:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: Linux
+            lib_name: libluau.a
+          - os: windows-latest
+            target: Windows
+            lib_name: luau.lib
+          - os: macos-latest
+            target: MacOS
+            lib_name: libluau.a
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: '3.22.x'
+
+      - name: Setup Ninja
+        uses: ashutoshvarma/setup-ninja@v1.1
+        with:
+          version: 1.11.1
+
+      - name: Setup MSVC (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build Luau libraries
+        run: |
+          mkdir -p project/luau/lib/${{ matrix.target }}
+          
+          # Navigate to Luau source directory
+          cd project/luau/include
+          
+          # Build Luau library
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            # For Windows, use MSVC to build
+            cmake . -G "Visual Studio 16 2019" -A x64 -B build
+            cmake --build build --config Release --parallel
+            cp build/Release/luau.lib ../../../lib/${{ matrix.target }}/luau.lib
+          else
+            # For Unix-like systems (Linux, macOS), use make
+            make -f Makefile
+            if [ "${{ matrix.os }}" == "macos-latest" ]; then
+              # On macOS, create static library
+              libtool -static -o ../../../lib/${{ matrix.target }}/libluau.a *.o
+            else
+              # On Linux, create static library
+              ar rcs ../../../lib/${{ matrix.target }}/libluau.a *.o
+            fi
+          fi
+        working-directory: .
+        shell: bash
+
+      - name: Build with g++ (Linux/macOS alternative)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd project/luau/include
+          # Compile all source files
+          g++ -std=c++17 -O2 -fPIC -c *.cpp
+          # Create static library
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            libtool -static -o ../../../project/luau/lib/${{ matrix.target }}/libluau.a *.o
+          else
+            ar rcs ../../../project/luau/lib/${{ matrix.target }}/libluau.a *.o
+          fi
+        shell: bash
+
+      - name: Build with MSVC (Windows alternative)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd project\luau\include
+          cl /c /EHsc /O2 *.cpp
+          lib /OUT:..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib *.obj
+        shell: cmd
+
+      - name: Upload Luau libraries
+        uses: actions/upload-artifact@v3
+        with:
+          name: luau-libs-${{ matrix.target }}
+          path: project/luau/lib/${{ matrix.target }}/
+          if-no-files-found: error
+
+  combine-libs:
+    needs: build-libs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create lib directories
+        run: |
+          mkdir -p project/luau/lib/Linux
+          mkdir -p project/luau/lib/Windows
+          mkdir -p project/luau/lib/MacOS
+
+      - name: Move artifacts to correct locations
+        run: |
+          mv luau-libs-Linux/* project/luau/lib/Linux/ || echo "No Linux libs"
+          mv luau-libs-Windows/* project/luau/lib/Windows/ || echo "No Windows libs"
+          mv luau-libs-MacOS/* project/luau/lib/MacOS/ || echo "No MacOS libs"
+
+      - name: Commit and push libraries
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add project/luau/lib/
+          git commit -m "Add compiled Luau libraries [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
