@@ -1,10 +1,6 @@
 name: Build Luau Libraries
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: workflow_dispatch
 
 # Grant write permissions to GITHUB_TOKEN so the workflow can push commits
 permissions:
@@ -447,4 +443,5 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin main || echo "No changes to push"
         env:
+
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
