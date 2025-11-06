@@ -82,12 +82,15 @@ jobs:
           fi
           
           # Create target directory and copy the combined library to the correct location
-          mkdir -p ../../../../project/luau/lib/${{ matrix.target }}
-          cp libluau.a ../../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          # The path should be relative to the repository root
+          mkdir -p ../lib/${{ matrix.target }}
+          cp libluau.a ../lib/${{ matrix.target }}/libluau.a
           
           # Debug: List files in target directory
-          echo "Files in target directory:"
-          ls -la ../../../../project/luau/lib/${{ matrix.target }}/
+          echo "Files in target directory (from build dir):"
+          ls -la ../lib/${{ matrix.target }}/
+          echo "Files in target directory (from repo root):"
+          ls -la project/luau/lib/${{ matrix.target }}/
         shell: bash
 
       - name: Build Luau library (Windows)
@@ -109,12 +112,15 @@ jobs:
           lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib.lib
           
           # Create target directory and copy the combined library to the correct location
-          mkdir ..\..\..\project\luau\lib\${{ matrix.target }}
-          copy luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
+          # The path should be relative to the repository root
+          mkdir ..\lib\${{ matrix.target }}
+          copy luau.lib ..\lib\${{ matrix.target }}\luau.lib
           
           # Debug: List files in target directory
-          echo Files in target directory:
-          dir ..\..\..\project\luau\lib\${{ matrix.target }}\
+          echo Files in target directory (from build dir):
+          dir ..\lib\${{ matrix.target }}\
+          echo Files in target directory (from repo root):
+          dir project\luau\lib\${{ matrix.target }}\
         shell: cmd
 
       - name: Upload Luau libraries
