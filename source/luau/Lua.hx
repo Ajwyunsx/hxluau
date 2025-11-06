@@ -206,10 +206,10 @@ extern class Lua {
 	@:native('lua_rawseti')
 	static function rawseti(L:cpp.RawPointer<Lua_State>, idx:Int, n:Int):Int;
 
-	@:native('luaL_ref')
+	@:native('lua_ref')
 	static function ref(L:cpp.RawPointer<Lua_State>, t:Int):Int;
 
-	@:native('luaL_unref')
+	@:native('lua_unref')
 	static function unref(L:cpp.RawPointer<Lua_State>, t:Int, ref:Int):Void;
 
     static inline function register(L:cpp.RawPointer<Lua_State>, name:cpp.ConstCharStar, f:Lua_CFunction):Void {
