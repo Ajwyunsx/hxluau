@@ -1,9 +1,17 @@
+// hxcpp precompiled header must be included first
+#include "hxcpp.h"
+
 #include "lua.h"
 #include "lualib.h"
 #include "luacode.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+// Luau does not define LUA_ERRFILE; provide a fallback to match PUC-Lua
+#ifndef LUA_ERRFILE
+#define LUA_ERRFILE 7
+#endif
 
 extern "C" {
 
