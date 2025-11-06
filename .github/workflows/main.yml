@@ -36,14 +36,14 @@ jobs:
             - name: Build Luau library (Windows x64)
               shell: cmd
               run: |
-                  REM Clean existing source
-                  rmdir /s /q project\luau 2>nul
+                  REM Clean existing temp source
+                  rmdir /s /q project\luau_src 2>nul
 
-                  REM Clone official Luau repository
-                  git clone https://github.com/luau-lang/luau.git project\luau
+                  REM Clone official Luau repository to temp
+                  git clone https://github.com/luau-lang/luau.git project\luau_src
 
                   REM Build with CMake using Ninja generator
-                  cd project\luau
+                  cd project\luau_src
                   mkdir build
                   cd build
                   cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
@@ -103,9 +103,9 @@ jobs:
               shell: bash
               run: |
                   set -e
-                  rm -rf project/luau
-                  git clone https://github.com/luau-lang/luau.git project/luau
-                  cd project/luau
+                  rm -rf project/luau_src
+                  git clone https://github.com/luau-lang/luau.git project/luau_src
+                  cd project/luau_src
                   mkdir -p build
                   cd build
                   cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
@@ -157,9 +157,9 @@ jobs:
               shell: bash
               run: |
                   set -e
-                  rm -rf project/luau
-                  git clone https://github.com/luau-lang/luau.git project/luau
-                  cd project/luau
+                  rm -rf project/luau_src
+                  git clone https://github.com/luau-lang/luau.git project/luau_src
+                  cd project/luau_src
                   mkdir -p build
                   cd build
                   cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
