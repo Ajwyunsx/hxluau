@@ -44,41 +44,22 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Clone Luau repository
+        run: |
+          # Remove existing incomplete Luau source
+          rm -rf project/luau
+          
+          # Clone official Luau repository
+          git clone https://github.com/luau-lang/luau.git project/luau
+        shell: bash
+
       - name: Build Luau library (Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p project/luau/lib/${{ matrix.target }}
           
           # Navigate to Luau source directory
-          cd project/luau/include
-          
-          # Create CMakeLists.txt for Luau
-          echo 'cmake_minimum_required(VERSION 3.22)' > CMakeLists.txt
-          echo 'project(Luau LANGUAGES CXX)' >> CMakeLists.txt
-          echo '' >> CMakeLists.txt
-          echo 'set(CMAKE_CXX_STANDARD 17)' >> CMakeLists.txt
-          echo 'set(CMAKE_CXX_STANDARD_REQUIRED ON)' >> CMakeLists.txt
-          echo '' >> CMakeLists.txt
-          echo '# Collect all source files' >> CMakeLists.txt
-          echo 'file(GLOB SOURCES "*.cpp")' >> CMakeLists.txt
-          echo '' >> CMakeLists.txt
-          echo '# Create static library' >> CMakeLists.txt
-          echo 'add_library(luau STATIC ${SOURCES})' >> CMakeLists.txt
-          echo '' >> CMakeLists.txt
-          echo '# Set include directories' >> CMakeLists.txt
-          echo 'target_include_directories(luau PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})' >> CMakeLists.txt
-          echo '' >> CMakeLists.txt
-          echo '# Compiler-specific options' >> CMakeLists.txt
-          echo 'if(MSVC)' >> CMakeLists.txt
-          echo '    target_compile_options(luau PRIVATE /EHsc /O2)' >> CMakeLists.txt
-          echo 'else()' >> CMakeLists.txt
-          echo '    target_compile_options(luau PRIVATE -O2 -fPIC)' >> CMakeLists.txt
-          echo 'endif()' >> CMakeLists.txt
-          echo '' >> CMakeLists.txt
-          echo '# Link math library on Unix-like systems' >> CMakeLists.txt
-          echo 'if(UNIX AND NOT APPLE)' >> CMakeLists.txt
-          echo '    target_link_libraries(luau m)' >> CMakeLists.txt
-          echo 'endif()' >> CMakeLists.txt
+          cd project/luau
           
           # Build with CMake
           mkdir build
@@ -92,47 +73,23 @@ jobs:
           
           # Copy the library to the correct location
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cp libluau.a ../../../../lib/${{ matrix.target }}/libluau.a
-          else
             cp libluau.a ../../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          else
+            cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
           fi
         shell: bash
 
       - name: Build Luau library (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          mkdir -p project\luau\lib\${{ matrix.target }}
+          # Remove existing incomplete Luau source
+          rmdir /s /q project\luau
+          
+          # Clone official Luau repository
+          git clone https://github.com/luau-lang/luau.git project/luau
           
           # Navigate to Luau source directory
-          cd project\luau\include
-          
-          # Create CMakeLists.txt for Luau
-          echo cmake_minimum_required(VERSION 3.22) > CMakeLists.txt
-          echo project(Luau LANGUAGES CXX) >> CMakeLists.txt
-          echo. >> CMakeLists.txt
-          echo set(CMAKE_CXX_STANDARD 17) >> CMakeLists.txt
-          echo set(CMAKE_CXX_STANDARD_REQUIRED ON) >> CMakeLists.txt
-          echo. >> CMakeLists.txt
-          echo # Collect all source files >> CMakeLists.txt
-          echo file(GLOB SOURCES "*.cpp") >> CMakeLists.txt
-          echo. >> CMakeLists.txt
-          echo # Create static library >> CMakeLists.txt
-          echo add_library(luau STATIC ${SOURCES}) >> CMakeLists.txt
-          echo. >> CMakeLists.txt
-          echo # Set include directories >> CMakeLists.txt
-          echo target_include_directories(luau PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) >> CMakeLists.txt
-          echo. >> CMakeLists.txt
-          echo # Compiler-specific options >> CMakeLists.txt
-          echo if(MSVC) >> CMakeLists.txt
-          echo     target_compile_options(luau PRIVATE /EHsc /O2) >> CMakeLists.txt
-          echo else() >> CMakeLists.txt
-          echo     target_compile_options(luau PRIVATE -O2 -fPIC) >> CMakeLists.txt
-          echo endif() >> CMakeLists.txt
-          echo. >> CMakeLists.txt
-          echo # Link math library on Unix-like systems >> CMakeLists.txt
-          echo if(UNIX AND NOT APPLE) >> CMakeLists.txt
-          echo     target_link_libraries(luau m) >> CMakeLists.txt
-          echo endif() >> CMakeLists.txt
+          cd project\luau
           
           # Build with CMake
           mkdir build
