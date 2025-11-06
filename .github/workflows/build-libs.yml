@@ -120,7 +120,7 @@ jobs:
           # Build with CMake using Ninja generator (more portable)
           mkdir build
           cd build
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
           cmake --build . --config Release
           
           # Create a combined Luau library from all the individual libraries
