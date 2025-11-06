@@ -12,7 +12,7 @@ import hxluau.Types;
 @:include('lua.h')
 @:include('lualib.h')
 @:include('luacode.h')
-@:include('LuauImpl.h')
+@:include('hxluau/LuauImpl.h')
 @:unreflective
 extern class LuaL
 {

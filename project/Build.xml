@@ -4,14 +4,17 @@
 
 	<files id="haxe">
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
 	</files>
 
 	<files id="__main__">
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
 	</files>
 
 	<files id="hxluau">
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
 		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
 	</files>
 
