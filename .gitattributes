@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Track large prebuilt Windows libraries via Git LFS
+project/luau/lib/Windows/*.lib filter=lfs diff=lfs merge=lfs -text
