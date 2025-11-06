@@ -28,7 +28,7 @@ jobs:
             - name: Compiling
               run: |
                   haxelib install hxcpp --quiet
-                  haxelib dev hxluajit .
+                  haxelib dev hxluau .
                   cd examples/${{matrix.sample}}
                   haxe build-win.hxml
     Linux:
