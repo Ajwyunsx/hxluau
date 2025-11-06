@@ -232,9 +232,16 @@ jobs:
               run: |
                 set -e
                 LIB="project/luau/lib/Linux/x64/libluau.a"
+                REBUILD=1
                 if [ -f "$LIB" ]; then
-                  echo "Library already present, skipping fallback build."
-                else
+                  if ar -t "$LIB" >/dev/null 2>&1; then
+                    echo "Valid libluau.a present; skipping fallback build."
+                    REBUILD=0
+                  else
+                    echo "Existing libluau.a is invalid; will rebuild."
+                  fi
+                fi
+                if [ "$REBUILD" = "1" ]; then
                   echo "Building Luau locally as fallback..."
                   rm -rf project/luau
                   git clone https://github.com/luau-lang/luau.git project/luau
@@ -326,9 +333,16 @@ jobs:
               run: |
                 set -e
                 LIB="project/luau/lib/MacOS/arm64/libluau.a"
+                REBUILD=1
                 if [ -f "$LIB" ]; then
-                  echo "Library already present, skipping fallback build."
-                else
+                  if ar -t "$LIB" >/dev/null 2>&1; then
+                    echo "Valid libluau.a present; skipping fallback build."
+                    REBUILD=0
+                  else
+                    echo "Existing libluau.a is invalid; will rebuild."
+                  fi
+                fi
+                if [ "$REBUILD" = "1" ]; then
                   echo "Building Luau locally as fallback (arm64)..."
                   rm -rf project/luau
                   git clone https://github.com/luau-lang/luau.git project/luau
@@ -378,9 +392,16 @@ jobs:
               run: |
                 set -e
                 LIB="project/luau/lib/MacOS/x64/libluau.a"
+                REBUILD=1
                 if [ -f "$LIB" ]; then
-                  echo "Library already present, skipping fallback build."
-                else
+                  if ar -t "$LIB" >/dev/null 2>&1; then
+                    echo "Valid libluau.a present; skipping fallback build."
+                    REBUILD=0
+                  else
+                    echo "Existing libluau.a is invalid; will rebuild."
+                  fi
+                fi
+                if [ "$REBUILD" = "1" ]; then
                   echo "Building Luau locally as fallback (x64)..."
                   rm -rf project/luau
                   git clone https://github.com/luau-lang/luau.git project/luau
