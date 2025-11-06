@@ -247,6 +247,8 @@ extern class Lua {
             if (str != null) {
                 final msg:String = str;
                 Sys.println(msg);
+                // Also flush to ensure output appears
+                Sys.stdout().flush();
             }
         }
 
