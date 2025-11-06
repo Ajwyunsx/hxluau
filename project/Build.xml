@@ -2,6 +2,22 @@
 <xml>
 	<pragma once="true" />
 
+	<!--
+	  hxluau requires 64-bit builds on Windows.
+	  To avoid adding "-D HXCPP_M64" in every HXML, we set it here by default
+	  when building on Windows (unless ARM64 is explicitly selected).
+	-->
+	<files id="haxe">
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
+		<!-- Ensure wrapper implementations are compiled into the target -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
+		<!-- Provide luaL_openlibs & luaL_newstate through wrapper that includes hxcpp PCH -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauInit.cpp" />
+		<!-- Default to 64-bit builds on Windows if no arch is specified -->
+		<flag value="-D HXCPP_M64" if="windows" unless="HXCPP_M64 HXCPP_ARM64" />
+	</files>
+
 	<files id="haxe">
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
 		<compilerflag value="-I${haxelib:hxluau}/source" />
@@ -28,6 +44,11 @@
 
 	<target id="haxe">
 		<flag value="-fstack-protector" if="mingw" />
+
+		<!-- Also enforce 64-bit on Windows at target level as a safeguard -->
+		<section if="windows">
+			<flag value="-D HXCPP_M64" unless="HXCPP_M64 HXCPP_ARM64" />
+		</section>
 
 		<section if="mingw">
 			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/x64/luau.lib" if="HXCPP_M64" />
