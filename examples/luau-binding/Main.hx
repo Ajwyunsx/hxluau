@@ -37,6 +37,9 @@ class Main {
         // 打开所有标准库
         LuaL.openlibs(L);
         
+        // 初始化回调函数，确保 print 函数被正确注册
+        Lua.init_callbacks(L);
+        
         // 示例 1: 基本操作
         trace("\n--- Example 1: Basic Operations ---");
         var script1 = '
