@@ -34,7 +34,8 @@ jobs:
         with:
           cmake-version: '3.22.x'
 
-      - name: Setup Ninja
+      - name: Setup Ninja (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         uses: ashutoshvarma/setup-ninja@v1.1
         with:
           version: 1.11.1
@@ -43,53 +44,108 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build Luau libraries
+      - name: Build Luau library (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           mkdir -p project/luau/lib/${{ matrix.target }}
           
           # Navigate to Luau source directory
           cd project/luau/include
           
-          # Build Luau library
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            # For Windows, use MSVC to build
-            cmake . -G "Visual Studio 16 2019" -A x64 -B build
-            cmake --build build --config Release --parallel
-            cp build/Release/luau.lib ../../../lib/${{ matrix.target }}/luau.lib
-          else
-            # For Unix-like systems (Linux, macOS), use make
-            make -f Makefile
-            if [ "${{ matrix.os }}" == "macos-latest" ]; then
-              # On macOS, create static library
-              libtool -static -o ../../../lib/${{ matrix.target }}/libluau.a *.o
-            else
-              # On Linux, create static library
-              ar rcs ../../../lib/${{ matrix.target }}/libluau.a *.o
-            fi
-          fi
-        working-directory: .
-        shell: bash
+          # Create CMakeLists.txt for Luau
+          cat > CMakeLists.txt << 'EOF'
+cmake_minimum_required(VERSION 3.22)
+project(Luau LANGUAGES CXX)
 
-      - name: Build with g++ (Linux/macOS alternative)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cd project/luau/include
-          # Compile all source files
-          g++ -std=c++17 -O2 -fPIC -c *.cpp
-          # Create static library
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Collect all source files
+file(GLOB SOURCES "*.cpp")
+list(FILTER SOURCES EXCLUDE REGEX "luau.*\\.cpp$")
+
+# Create static library
+add_library(luau STATIC ${SOURCES})
+
+# Set include directories
+target_include_directories(luau PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Compiler-specific options
+if(MSVC)
+    target_compile_options(luau PRIVATE /EHsc /O2)
+else()
+    target_compile_options(luau PRIVATE -O2 -fPIC)
+endif()
+
+# Link math library on Unix-like systems
+if(UNIX AND NOT APPLE)
+    target_link_libraries(luau m)
+endif()
+EOF
+          
+          # Build with CMake
+          mkdir build
+          cd build
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            libtool -static -o ../../../project/luau/lib/${{ matrix.target }}/libluau.a *.o
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
           else
-            ar rcs ../../../project/luau/lib/${{ matrix.target }}/libluau.a *.o
+            cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+          fi
+          cmake --build . --config Release
+          
+          # Copy the library to the correct location
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            cp libluau.a ../../../../lib/${{ matrix.target }}/libluau.a
+          else
+            cp libluau.a ../../../../project/luau/lib/${{ matrix.target }}/libluau.a
           fi
         shell: bash
 
-      - name: Build with MSVC (Windows alternative)
+      - name: Build Luau library (Windows)
         if: matrix.os == 'windows-latest'
         run: |
+          mkdir -p project\luau\lib\${{ matrix.target }}
+          
+          # Navigate to Luau source directory
           cd project\luau\include
-          cl /c /EHsc /O2 *.cpp
-          lib /OUT:..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib *.obj
+          
+          # Create CMakeLists.txt for Luau
+          @echo cmake_minimum_required(VERSION 3.22) > CMakeLists.txt
+          @echo project(Luau LANGUAGES CXX) >> CMakeLists.txt
+          @echo. >> CMakeLists.txt
+          @echo set(CMAKE_CXX_STANDARD 17) >> CMakeLists.txt
+          @echo set(CMAKE_CXX_STANDARD_REQUIRED ON) >> CMakeLists.txt
+          @echo. >> CMakeLists.txt
+          @echo # Collect all source files >> CMakeLists.txt
+          @echo file(GLOB SOURCES "*.cpp") >> CMakeLists.txt
+          @echo list(FILTER SOURCES EXCLUDE REGEX "luau.*\\.cpp$") >> CMakeLists.txt
+          @echo. >> CMakeLists.txt
+          @echo # Create static library >> CMakeLists.txt
+          @echo add_library(luau STATIC ${SOURCES}) >> CMakeLists.txt
+          @echo. >> CMakeLists.txt
+          @echo # Set include directories >> CMakeLists.txt
+          @echo target_include_directories(luau PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) >> CMakeLists.txt
+          @echo. >> CMakeLists.txt
+          @echo # Compiler-specific options >> CMakeLists.txt
+          @echo if(MSVC) >> CMakeLists.txt
+          @echo     target_compile_options(luau PRIVATE /EHsc /O2) >> CMakeLists.txt
+          @echo else() >> CMakeLists.txt
+          @echo     target_compile_options(luau PRIVATE -O2 -fPIC) >> CMakeLists.txt
+          @echo endif() >> CMakeLists.txt
+          @echo. >> CMakeLists.txt
+          @echo # Link math library on Unix-like systems >> CMakeLists.txt
+          @echo if(UNIX AND NOT APPLE) >> CMakeLists.txt
+          @echo     target_link_libraries(luau m) >> CMakeLists.txt
+          @echo endif() >> CMakeLists.txt
+          
+          # Build with CMake
+          mkdir build
+          cd build
+          cmake .. -G "Visual Studio 16 2019" -A x64
+          cmake --build . --config Release
+          
+          # Copy the library to the correct location
+          copy Release\luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
         shell: cmd
 
       - name: Upload Luau libraries
