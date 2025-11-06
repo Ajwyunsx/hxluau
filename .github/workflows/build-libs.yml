@@ -181,11 +181,18 @@ jobs:
 
           setlocal EnableDelayedExpansion
           set FILES=
-          for /r %%f in (Luau.*.lib) do set FILES=!FILES! "%%f"
+          rem Collect all candidate libs (include Luau.*.lib and other core libs if present)
+          for /r %%f in (*.lib) do (
+            if /I not "%%~nxf"=="luau.lib" (
+              set FILES=!FILES! "%%f"
+            )
+          )
           if "!FILES!"=="" (
-            echo No Luau.*.lib found. Failing.
+            echo No .lib files found to merge. Failing.
             exit /b 1
           )
+          echo Merging libs:
+          echo !FILES!
           lib.exe /OUT:luau.lib !FILES!
           if errorlevel 1 exit /b %errorlevel%
 

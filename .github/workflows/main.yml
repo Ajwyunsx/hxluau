@@ -344,6 +344,14 @@ jobs:
                   cp libluau.a ../lib/MacOS/arm64/libluau.a
                 fi
 
+            - name: Prune wrong-arch library (macOS arm64)
+              if: runner.arch == 'ARM64'
+              shell: bash
+              run: |
+                set -e
+                # Remove x64 lib to avoid accidental linkage on ARM64
+                rm -f project/luau/lib/MacOS/x64/libluau.a || true
+
             - name: Download prebuilt Luau artifact (macOS x64)
               if: env.NEED_BUILD == '1' && runner.arch == 'X64'
               uses: dawidd6/action-download-artifact@v2
@@ -387,6 +395,14 @@ jobs:
                   mkdir -p ../lib/MacOS/x64
                   cp libluau.a ../lib/MacOS/x64/libluau.a
                 fi
+
+            - name: Prune wrong-arch library (macOS x64)
+              if: runner.arch == 'X64'
+              shell: bash
+              run: |
+                set -e
+                # Remove arm64 lib to avoid accidental linkage on x64
+                rm -f project/luau/lib/MacOS/arm64/libluau.a || true
 
             - name: Compiling
               run: |
