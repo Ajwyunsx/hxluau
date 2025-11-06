@@ -82,12 +82,14 @@ jobs:
           fi
           
           # Create a directory for the built library and copy it there
-          mkdir -p built_lib
-          cp libluau.a built_lib/libluau.a
+          mkdir -p ../../built_lib
+          cp libluau.a ../../built_lib/libluau.a
           
           # Debug: List files in built_lib directory
-          echo "Files in built_lib directory:"
-          ls -la built_lib/
+          echo "Files in built_lib directory (from build dir):"
+          ls -la ../../built_lib/
+          echo "Files in built_lib directory (from repo root):"
+          ls -la project/luau/built_lib/
         shell: bash
 
       - name: Build Luau library (Windows)
@@ -115,12 +117,14 @@ jobs:
           lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib.lib
           
           # Create a directory for the built library and copy it there
-          mkdir built_lib
-          copy luau.lib built_lib\luau.lib
+          mkdir ..\..\built_lib
+          copy luau.lib ..\..\built_lib\luau.lib
           
           # Debug: List files in built_lib directory
-          echo Files in built_lib directory:
-          dir built_lib
+          echo Files in built_lib directory (from build dir):
+          dir ..\..\built_lib\
+          echo Files in built_lib directory (from repo root):
+          dir project\luau\built_lib\
         shell: cmd
 
       - name: Upload built libraries
