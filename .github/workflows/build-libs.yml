@@ -189,6 +189,12 @@ jobs:
           - arch: x64
             android_abi: x86_64
             lib_name: libluau-x86_64.a
+          - arch: armv7a
+            android_abi: armeabi-v7a
+            lib_name: libluau-armv7a.a
+          - arch: x86
+            android_abi: x86
+            lib_name: libluau-x86.a
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -392,6 +398,19 @@ jobs:
           else
             echo "No Android x64 library found"
           fi
+          # Android armv7a/x86 (32-bit)
+          if [ -d "luau-libs-Android-armv7a" ] && [ -f "luau-libs-Android-armv7a/libluau-armv7a.a" ]; then
+            mv luau-libs-Android-armv7a/libluau-armv7a.a project/luau/lib/Android/libluau-armv7a.a
+            echo "Moved Android armv7a library"
+          else
+            echo "No Android armv7a library found"
+          fi
+          if [ -d "luau-libs-Android-x86" ] && [ -f "luau-libs-Android-x86/libluau-x86.a" ]; then
+            mv luau-libs-Android-x86/libluau-x86.a project/luau/lib/Android/libluau-x86.a
+            echo "Moved Android x86 library"
+          else
+            echo "No Android x86 library found"
+          fi
 
           # iOS arm64/x64
           if [ -d "luau-libs-iOS-arm64" ] && [ -f "luau-libs-iOS-arm64/libluau_device.a" ]; then
@@ -411,8 +430,12 @@ jobs:
         if: github.event_name == 'push'
         run: |
           git lfs install
+          # Ensure LFS tracks library file types
+          git lfs track "project/luau/lib/**/*.a"
+          git lfs track "project/luau/lib/**/*.lib"
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git add .gitattributes
           git add project/luau/lib/
           git commit -m "Add compiled Luau libraries [skip ci]" || echo "No changes to commit"
           # Ensure we use the token for pushing
