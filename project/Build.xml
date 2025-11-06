@@ -2,13 +2,53 @@
 <xml>
 	<pragma once="true" />
 
+	<!--
+	  hxluau requires 64-bit builds on Windows.
+	  To avoid adding "-D HXCPP_M64" in every HXML, we set it here by default
+	  when building on Windows (unless ARM64 is explicitly selected).
+	-->
 	<files id="haxe">
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
+		<!-- Ensure wrapper implementations are compiled into the target -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
+		<!-- Provide luaL_openlibs & luaL_newstate through wrapper that includes hxcpp PCH -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauInit.cpp" />
+		<!-- Default to 64-bit builds on Windows if no arch is specified -->
+		<flag value="-D HXCPP_M64" if="windows" unless="HXCPP_M64 HXCPP_ARM64" />
+	</files>
+
+	<files id="haxe">
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
+		<!-- Ensure wrapper implementations are compiled into the target -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
+		<!-- Provide luaL_openlibs & luaL_newstate through wrapper that includes hxcpp PCH -->
+		<file name="${haxelib:hxluau}/source/hxluau/LuauInit.cpp" />
+	</files>
+
+	<files id="__main__">
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
+	</files>
+
+	<files id="hxluau">
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<compilerflag value="-I${haxelib:hxluau}/source" />
+	</files>
+
+	<files id="__externs__">
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
 		<compilerflag value="-I${haxelib:hxluau}/source" />
 	</files>
 
 	<target id="haxe">
 		<flag value="-fstack-protector" if="mingw" />
+
+		<!-- Also enforce 64-bit on Windows at target level as a safeguard -->
+		<section if="windows">
+			<flag value="-D HXCPP_M64" unless="HXCPP_M64 HXCPP_ARM64" />
+		</section>
 
 		<section if="mingw">
 			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/x64/luau.lib" if="HXCPP_M64" />
@@ -28,6 +68,10 @@
 		<section if="linux">
 			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/x64/libluau.a" if="HXCPP_M64" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/arm64/libluau.a" if="HXCPP_ARM64" />
+		</section>
+
+		<section if="android">
+			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-arm64.a" if="HXCPP_ARM64" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-armv7a.a" if="HXCPP_ARMV7" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-x86.a" if="HXCPP_X86" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Android/libluau-x86_64.a" if="HXCPP_X86_64" />
