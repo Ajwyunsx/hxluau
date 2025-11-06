@@ -80,7 +80,7 @@ jobs:
           # Create libluau.a by flattening and combining individual Luau static libraries
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             # On macOS, use libtool to create a combined static library (flattens members)
-            libtool -static -o libluau.a libLuau.Analysis.a libLuau.Ast.a libLuau.CodeGen.a libLuau.Compiler.a libLuau.Config.a libLuau.VM.a libLuau.EqSat.a libLuau.Require.a libLuau.CLI.lib.a
+            libtool -static -o libluau.a libLuau.Analysis.a libLuau.Ast.a libLuau.CodeGen.a libLuau.Compiler.a libLuau.Config.a libLuau.VM.a libLuau.EqSat.a libLuau.Require.a libLuau.CLI.a
             ranlib libluau.a
           else
             # On Linux, use ar MRI script to add members from each library and then index with ranlib
@@ -94,7 +94,7 @@ jobs:
             "addlib libLuau.VM.a" \
             "addlib libLuau.EqSat.a" \
             "addlib libLuau.Require.a" \
-            "addlib libLuau.CLI.lib.a" \
+            "addlib libLuau.CLI.a" \
             "save" \
             "end" > combine.mri
             ar -M < combine.mri
@@ -134,7 +134,7 @@ jobs:
           # Luau is built as multiple libraries, we need to combine them for hxluau
           
           # Use lib.exe to combine all Luau libraries into one
-          lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib.lib
+          lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib
           
           # Create a directory under project\luau for the built library and copy it there
           mkdir ..\built_lib
