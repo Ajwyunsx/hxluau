@@ -9,8 +9,8 @@
 # Set the output directory
 -cpp bin
 
-# Add hxcpp library
--lib hxcpp
+# Add hxluau library
+-lib hxluau
 
 # Copy script file to output directory
 -cmd cp script.lua bin/script.lua
