@@ -81,10 +81,10 @@ extern class Lua {
 	static function pushfstring(L:cpp.RawPointer<Lua_State>, fmt:cpp.ConstCharStar, args:cpp.Rest<cpp.VarArg>):cpp.ConstCharStar;
 
 	@:native('lua_pushcclosure')
-	static function pushcclosure(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction, n:Int):Void;
+	static function pushcclosure(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction, debugname:cpp.ConstCharStar, n:Int):Void;
 
 	@:native('lua_pushcfunction')
-	static function pushcfunction(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction):Void;
+	static function pushcfunction(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction, debugname:cpp.ConstCharStar):Void;
 
 	@:noCompletion
 	@:native('lua_pushboolean')
@@ -207,12 +207,13 @@ extern class Lua {
 	static function rawseti(L:cpp.RawPointer<Lua_State>, idx:Int, n:Int):Int;
 
     static inline function register(L:cpp.RawPointer<Lua_State>, name:cpp.ConstCharStar, f:Lua_CFunction):Void {
-        Lua.pushcfunction(L, f);
+        Lua.pushcfunction(L, f, name);
         Lua.setglobal(L, name);
     }
 
     static inline function init_callbacks(L:cpp.RawPointer<Lua_State>):Void {
-        Lua.register(L, "print", cpp.Callable.fromStaticFunction(print));
+        Lua.pushcfunction(L, cpp.Callable.fromStaticFunction(print), "print");
+        Lua.setglobal(L, "print");
     }
 
 	@:native('lua_pushvalue')
@@ -250,7 +251,7 @@ class Lua_helper {
 	public static function add_callback(L:cpp.RawPointer<Lua_State>, fname:String, f:Dynamic):Bool {
 		callbacks.set(fname, f);
         Lua.pushstring(L, fname);
-        Lua.pushcclosure(L, cpp.Callable.fromStaticFunction(callback_handler), 1);
+        Lua.pushcclosure(L, cpp.Callable.fromStaticFunction(callback_handler), fname, 1);
         Lua.setglobal(L, fname);
 		return true;
 	}
