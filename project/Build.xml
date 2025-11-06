@@ -7,6 +7,8 @@
 		<compilerflag value="-I${haxelib:hxluau}/source" />
 		<!-- Ensure wrapper implementations are compiled into the target -->
 		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
+		<!-- Provide luaL_openlibs & luaL_newstate from Luau's linit.cpp to fix Windows unresolveds -->
+		<file name="${haxelib:hxluau}/project/luau/include/linit.cpp" />
 	</files>
 
 	<files id="__main__">
