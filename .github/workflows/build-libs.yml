@@ -127,7 +127,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: luau-libs-${{ matrix.target }}
-          path: project/luau/lib/${{ matrix.target }}/**
+          path: project/luau/lib/${{ matrix.target }}/*
           if-no-files-found: error
 
   combine-libs:
