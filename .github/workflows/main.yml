@@ -25,6 +25,9 @@ jobs:
             - name: Setup Git LFS
               run: git lfs install
 
+            - name: Setup MSVC Build Tools
+              uses: ilammy/msvc-dev-cmd@v1
+
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
               with:
