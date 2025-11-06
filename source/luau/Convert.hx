@@ -87,7 +87,7 @@ class Convert {
 					loopTable(l, idx, {
 						switch Lua.type(l, -2) {
 							case t if (t == Lua.TSTRING): v.set(cast(Lua.tostring(l, -2), String), fromLua(l, -1));
-							case t if (t == Lua.TNUMBER): v.set(Std.string(Lua.tonumber(l, -2)), fromLua(l, -1));
+							case t if (t == Lua.TNUMBER): v.set(Std.string(cast(Lua.tonumber(l, -2), Float)), fromLua(l, -1));
 						}
 					});
 					cast v;
