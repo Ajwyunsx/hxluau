@@ -15,16 +15,32 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            target: Linux
+            platform: Linux
+            arch: x64
+            lib_name: libluau.a
+          - os: ubuntu-latest
+            platform: Linux
+            arch: arm64
             lib_name: libluau.a
           - os: windows-latest
-            target: Windows
+            platform: Windows
+            arch: x64
             lib_name: luau.lib
+            msvc_arch: x64
+          - os: windows-latest
+            platform: Windows
+            arch: arm64
+            lib_name: luau.lib
+            msvc_arch: amd64_arm64
           - os: macos-latest
-            target: MacOS
+            platform: MacOS
+            arch: x64
+            lib_name: libluau.a
+          - os: macos-latest
+            platform: MacOS
+            arch: arm64
             lib_name: libluau.a
 
     steps:
@@ -48,6 +64,8 @@ jobs:
       - name: Setup MSVC (Windows)
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
 
       - name: Clone Luau repository
         run: |
@@ -59,31 +77,40 @@ jobs:
         shell: bash
 
       - name: Build Luau library (Linux/macOS)
-        if: matrix.os != 'windows-latest'
+        if: matrix.platform == 'Linux' || matrix.platform == 'MacOS'
         run: |
           # Navigate to Luau source directory
           cd project/luau
-          
-          # Build with CMake
-          mkdir build
+
+          # Build with CMake for the specific platform/arch
+          mkdir -p build
           cd build
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+          if [ "${{ matrix.platform }}" = "MacOS" ]; then
+            # macOS: choose architecture via CMAKE_OSX_ARCHITECTURES
+            if [ "${{ matrix.arch }}" = "x64" ]; then
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+            else
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+            fi
           else
-            cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+            # Linux: use Ninja; install cross toolchain if arm64
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_AR=aarch64-linux-gnu-ar
+            else
+              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+            fi
           fi
+
           cmake --build . --config Release
-          
-          # Create a combined Luau library from all the individual libraries
-          # Luau is built as multiple libraries, we need to combine them for hxluau
-          
-          # Create libluau.a by flattening and combining individual Luau static libraries
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            # On macOS, combine all static Luau libraries that were built
+
+          # Combine Luau libs into a single static library
+          if [ "${{ matrix.platform }}" = "MacOS" ]; then
             libtool -static -o libluau.a libLuau.*.a
             ranlib libluau.a
           else
-            # On Linux, dynamically compose an MRI script from existing libLuau.*.a members
             echo "create libluau.a" > combine.mri
             for f in libLuau.*.a; do
               if [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
@@ -93,12 +120,12 @@ jobs:
             ar -M < combine.mri
             ranlib libluau.a
           fi
-          
-          # Create a directory under project/luau for the built library and copy it there
+
+          # Copy to built_lib
           mkdir -p ../built_lib
           cp libluau.a ../built_lib/libluau.a
-          
-          # Debug: List files in built_lib directory
+
+          # Debug
           echo "Files in built_lib directory (from build dir):"
           ls -la ../built_lib/
           echo "Files in built_lib directory (from repo root):"
@@ -106,37 +133,34 @@ jobs:
         shell: bash
 
       - name: Build Luau library (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'Windows'
         run: |
-          # Remove existing incomplete Luau source
+          REM Remove existing incomplete Luau source
           rmdir /s /q project\luau
-          
-          # Clone official Luau repository
-          git clone https://github.com/luau-lang/luau.git project/luau
-          
-          # Navigate to Luau source directory
+
+          REM Clone official Luau repository
+          git clone https://github.com/luau-lang/luau.git project\luau
+
+          REM Navigate to Luau source directory
           cd project\luau
-          
-          # Build with CMake using Ninja generator (more portable)
+
+          REM Build with CMake using Ninja generator
           mkdir build
           cd build
           cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
           cmake --build . --config Release
-          
-          # Create a combined Luau library from all the individual libraries
-          # Luau is built as multiple libraries, we need to combine them for hxluau
-          
-          # Use lib.exe to combine all Luau libraries into one dynamically
+
+          REM Combine Luau libraries into one
           setlocal EnableDelayedExpansion
           set FILES=
           for %%f in (Luau.*.lib) do set FILES=!FILES! %%f
           lib.exe /OUT:luau.lib !FILES!
-          
-          # Create a directory under project\luau for the built library and copy it there
+
+          REM Copy to built_lib
           mkdir ..\built_lib
           copy luau.lib ..\built_lib\luau.lib
-          
-          # Debug: List files in built_lib directory
+
+          REM Debug
           echo Files in built_lib directory (from build dir):
           dir ..\built_lib\
           echo Files in built_lib directory (from repo root):
@@ -146,12 +170,145 @@ jobs:
       - name: Upload built libraries
         uses: actions/upload-artifact@v4
         with:
-          name: luau-libs-${{ matrix.target }}
+          name: luau-libs-${{ matrix.platform }}-${{ matrix.arch }}
+          path: project/luau/built_lib/*
+          if-no-files-found: error
+
+  build-android-libs:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            android_abi: arm64-v8a
+            lib_name: libluau-arm64.a
+          - arch: x64
+            android_abi: x86_64
+            lib_name: libluau-x86_64.a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: '3.22.x'
+
+      - name: Setup Ninja
+        uses: ashutoshvarma/setup-ninja@v1.1
+        with:
+          version: 1.11.1
+
+      - name: Setup Android SDK/NDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          ndk: 25.1.8937393
+
+      - name: Clone Luau repository
+        run: |
+          rm -rf project/luau
+          git clone https://github.com/luau-lang/luau.git project/luau
+        shell: bash
+
+      - name: Build Luau library (Android)
+        run: |
+          cd project/luau
+          mkdir -p build
+          cd build
+
+          # Resolve NDK path variable name
+          if [ -n "$ANDROID_NDK_ROOT" ]; then NDK="$ANDROID_NDK_ROOT"; else NDK="$ANDROID_NDK_HOME"; fi
+
+          cmake .. -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI="${{ matrix.android_abi }}" \
+            -DANDROID_PLATFORM=android-21 \
+            -DANDROID_STL=c++_static
+
+          cmake --build . --config Release
+
+          # Combine Luau libraries into one output per ABI
+          echo "create ${{ matrix.lib_name }}" > combine.mri
+          for f in libLuau.*.a; do
+            if [ -e "$f" ]; then echo "addlib $f" >> combine.mri; fi
+          done
+          echo "save" >> combine.mri
+          echo "end" >> combine.mri
+          ar -M < combine.mri
+          ranlib "${{ matrix.lib_name }}"
+
+          mkdir -p ../built_lib
+          cp "${{ matrix.lib_name }}" ../built_lib/
+          ls -la ../built_lib/
+        shell: bash
+
+      - name: Upload built libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: luau-libs-Android-${{ matrix.arch }}
+          path: project/luau/built_lib/*
+          if-no-files-found: error
+
+  build-ios-libs:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            sdk: iphoneos
+            lib_name: libluau_device.a
+          - arch: x64
+            sdk: iphonesimulator
+            lib_name: libluau_sim.a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: '3.22.x'
+
+      - name: Clone Luau repository
+        run: |
+          rm -rf project/luau
+          git clone https://github.com/luau-lang/luau.git project/luau
+        shell: bash
+
+      - name: Build Luau library (iOS)
+        run: |
+          cd project/luau
+          mkdir -p build
+          cd build
+
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+          else
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+          fi
+
+          cmake --build . --config Release
+
+          # Combine Luau libraries
+          libtool -static -o "${{ matrix.lib_name }}" libLuau.*.a
+          ranlib "${{ matrix.lib_name }}"
+
+          mkdir -p ../built_lib
+          cp "${{ matrix.lib_name }}" ../built_lib/
+          ls -la ../built_lib/
+        shell: bash
+
+      - name: Upload built libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: luau-libs-iOS-${{ matrix.arch }}
           path: project/luau/built_lib/*
           if-no-files-found: error
 
   combine-libs:
-    needs: build-libs
+    needs: [build-libs, build-android-libs, build-ios-libs]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -162,34 +319,88 @@ jobs:
 
       - name: Create lib directories
         run: |
-          mkdir -p project/luau/lib/Linux
-          mkdir -p project/luau/lib/Windows
-          mkdir -p project/luau/lib/MacOS
+          mkdir -p project/luau/lib/Linux/x64
+          mkdir -p project/luau/lib/Linux/arm64
+          mkdir -p project/luau/lib/Windows/x64
+          mkdir -p project/luau/lib/Windows/arm64
+          mkdir -p project/luau/lib/MacOS/x64
+          mkdir -p project/luau/lib/MacOS/arm64
+          mkdir -p project/luau/lib/Android
+          mkdir -p project/luau/lib/iOS
 
       - name: Move artifacts to correct locations
         run: |
-          # Move Linux library
-          if [ -d "luau-libs-Linux" ] && [ -f "luau-libs-Linux/libluau.a" ]; then
-            mv luau-libs-Linux/libluau.a project/luau/lib/Linux/libluau.a
-            echo "Moved Linux library"
+          # Linux x64
+          if [ -d "luau-libs-Linux-x64" ] && [ -f "luau-libs-Linux-x64/libluau.a" ]; then
+            mv luau-libs-Linux-x64/libluau.a project/luau/lib/Linux/x64/libluau.a
+            echo "Moved Linux x64 library"
           else
-            echo "No Linux library found"
+            echo "No Linux x64 library found"
           fi
-          
-          # Move Windows library
-          if [ -d "luau-libs-Windows" ] && [ -f "luau-libs-Windows/luau.lib" ]; then
-            mv luau-libs-Windows/luau.lib project/luau/lib/Windows/luau.lib
-            echo "Moved Windows library"
+          # Linux arm64
+          if [ -d "luau-libs-Linux-arm64" ] && [ -f "luau-libs-Linux-arm64/libluau.a" ]; then
+            mv luau-libs-Linux-arm64/libluau.a project/luau/lib/Linux/arm64/libluau.a
+            echo "Moved Linux arm64 library"
           else
-            echo "No Windows library found"
+            echo "No Linux arm64 library found"
           fi
-          
-          # Move MacOS library
-          if [ -d "luau-libs-MacOS" ] && [ -f "luau-libs-MacOS/libluau.a" ]; then
-            mv luau-libs-MacOS/libluau.a project/luau/lib/MacOS/libluau.a
-            echo "Moved MacOS library"
+
+          # Windows x64
+          if [ -d "luau-libs-Windows-x64" ] && [ -f "luau-libs-Windows-x64/luau.lib" ]; then
+            mv luau-libs-Windows-x64/luau.lib project/luau/lib/Windows/x64/luau.lib
+            echo "Moved Windows x64 library"
           else
-            echo "No MacOS library found"
+            echo "No Windows x64 library found"
+          fi
+          # Windows arm64
+          if [ -d "luau-libs-Windows-arm64" ] && [ -f "luau-libs-Windows-arm64/luau.lib" ]; then
+            mv luau-libs-Windows-arm64/luau.lib project/luau/lib/Windows/arm64/luau.lib
+            echo "Moved Windows arm64 library"
+          else
+            echo "No Windows arm64 library found"
+          fi
+
+          # MacOS x64
+          if [ -d "luau-libs-MacOS-x64" ] && [ -f "luau-libs-MacOS-x64/libluau.a" ]; then
+            mv luau-libs-MacOS-x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
+            echo "Moved MacOS x64 library"
+          else
+            echo "No MacOS x64 library found"
+          fi
+          # MacOS arm64
+          if [ -d "luau-libs-MacOS-arm64" ] && [ -f "luau-libs-MacOS-arm64/libluau.a" ]; then
+            mv luau-libs-MacOS-arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
+            echo "Moved MacOS arm64 library"
+          else
+            echo "No MacOS arm64 library found"
+          fi
+
+          # Android arm64/x64
+          if [ -d "luau-libs-Android-arm64" ] && [ -f "luau-libs-Android-arm64/libluau-arm64.a" ]; then
+            mv luau-libs-Android-arm64/libluau-arm64.a project/luau/lib/Android/libluau-arm64.a
+            echo "Moved Android arm64 library"
+          else
+            echo "No Android arm64 library found"
+          fi
+          if [ -d "luau-libs-Android-x64" ] && [ -f "luau-libs-Android-x64/libluau-x86_64.a" ]; then
+            mv luau-libs-Android-x64/libluau-x86_64.a project/luau/lib/Android/libluau-x86_64.a
+            echo "Moved Android x64 library"
+          else
+            echo "No Android x64 library found"
+          fi
+
+          # iOS arm64/x64
+          if [ -d "luau-libs-iOS-arm64" ] && [ -f "luau-libs-iOS-arm64/libluau_device.a" ]; then
+            mv luau-libs-iOS-arm64/libluau_device.a project/luau/lib/iOS/libluau_device.a
+            echo "Moved iOS device (arm64) library"
+          else
+            echo "No iOS arm64 library found"
+          fi
+          if [ -d "luau-libs-iOS-x64" ] && [ -f "luau-libs-iOS-x64/libluau_sim.a" ]; then
+            mv luau-libs-iOS-x64/libluau_sim.a project/luau/lib/iOS/libluau_sim.a
+            echo "Moved iOS simulator (x64) library"
+          else
+            echo "No iOS x64 library found"
           fi
 
       - name: Commit and push libraries
