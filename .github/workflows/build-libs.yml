@@ -73,7 +73,6 @@ jobs:
           
           # Create a combined Luau library from all the individual libraries
           # Luau is built as multiple libraries, we need to combine them for hxluau
-          cd build
           
           # Create libluau.a by archiving all the individual Luau libraries
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
@@ -85,7 +84,7 @@ jobs:
           fi
           
           # Copy the combined library to the correct location
-          cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          cp libluau.a ../../../../project/luau/lib/${{ matrix.target }}/libluau.a
         shell: bash
 
       - name: Build Luau library (Windows)
@@ -108,8 +107,6 @@ jobs:
           
           # Create a combined Luau library from all the individual libraries
           # Luau is built as multiple libraries, we need to combine them for hxluau
-          # Find the lib.exe tool and use it to create a combined static library
-          cd build
           
           # Use lib.exe to combine all Luau libraries into one
           lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib.lib
