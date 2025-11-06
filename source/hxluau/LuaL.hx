@@ -12,6 +12,7 @@ import hxluau.Types;
 @:include('lua.h')
 @:include('lualib.h')
 @:include('luacode.h')
+@:include('LuauImpl.h')
 @:unreflective
 extern class LuaL
 {
@@ -404,12 +405,12 @@ extern class LuaL
 	 * @paramstr The string to execute.
 	 * @return The result of the execution.
 	 */
-	inline static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int {
-		final result = loadstring(L, str);
-		if (result == 0) {
+	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int {
+		final loadResult = loadstring(L, str);
+		if (loadResult == 0) {
 			return Lua.pcall(L, 0, Lua.MULTRET, 0);
 		}
-		return result;
+		return loadResult;
 	}
 
 	/**
@@ -537,51 +538,8 @@ extern class LuaL
 	 * @param filename The name of the file to load.
 	 * @return The result of the load operation.
 	 */
-	inline static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
-		untyped __cpp__('
-			FILE* file = fopen(filename, "rb");
-			if (!file) {
-				lua_pushfstring(L, "cannot open %s", filename);
-				return LUA_ERRFILE;
-			}
-			
-			fseek(file, 0, SEEK_END);
-			size_t size = ftell(file);
-			fseek(file, 0, SEEK_SET);
-			
-			char* buffer = (char*)malloc(size);
-			if (!buffer) {
-				fclose(file);
-				lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
-				return LUA_ERRMEM;
-			}
-			
-			size_t read = fread(buffer, 1, size, file);
-			fclose(file);
-			
-			if (read != size) {
-				free(buffer);
-				lua_pushfstring(L, "cannot read %s", filename);
-				return LUA_ERRFILE;
-			}
-			
-			// Compile using Luau
-			size_t bytecodeSize;
-			char* bytecode = luau_compile(buffer, size, NULL, &bytecodeSize);
-			free(buffer);
-			
-			if (!bytecode) {
-				lua_pushfstring(L, "cannot compile %s", filename);
-				return LUA_ERRSYNTAX;
-			}
-			
-			// Load the bytecode
-			int result = luau_load(L, filename, bytecode, bytecodeSize, 0);
-			free(bytecode);
-			return result;
-		');
-		return Lua.ERRERR; // This line should not be reached
-	}
+	@:native("::hxluau::LuaL_loadfile_wrapper")
+	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
 
 	/**
 	 * Loads a string for Luau, requires separate compilation step via luau_compile.
@@ -590,23 +548,6 @@ extern class LuaL
 	 * @param s The string to load.
 	 * @return The result of the load operation.
 	 */
-	inline static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int {
-		// We need to determine the correct approach to get string length in C++
-		untyped __cpp__('
-			size_t s_len = strlen({0});
-			size_t bytecodeSize;
-			char* bytecode = luau_compile({0}, s_len, NULL, &bytecodeSize);
-			
-			if (!bytecode) {
-				lua_pushfstring({1}, "cannot compile string");
-				return LUA_ERRSYNTAX;
-			}
-			
-			// Load the bytecode
-			int result = luau_load({1}, "string", bytecode, bytecodeSize, 0);
-			free(bytecode);
-			return result;
-		', s, L);
-		return Lua.ERRERR; // This line should not be reached
-	}
+	@:native("::hxluau::LuaL_loadstring_wrapper")
+	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int;
 }

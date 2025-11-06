@@ -10,6 +10,11 @@
 		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
 	</files>
 
+	<files id="hxluau">
+		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
+		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
+	</files>
+
 	<target id="haxe">
 		<flag value="-fstack-protector" if="mingw" />
 
@@ -17,7 +22,7 @@
 			<lib name="${haxelib:hxluau}/project/luau/lib/MinGW/libluau.a" if="HXCPP_M64" />
 		</section>
 
-		<section if="windows" unless="mingw">
+		<section if="windows">
 			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/luau.lib" if="HXCPP_M64" />
 		</section>
 

@@ -1,7 +1,6 @@
 package;
 
 import hxluau.Lua;
-
 import hxluau.LuaL;
 import hxluau.Types;
 
@@ -20,7 +19,13 @@ class Main
 		LuaL.openlibs(vm);
 
 		/* run the script */
-		LuaL.dostring(vm, sys.io.File.getContent("script.lua"));
+		var scriptContent:String = sys.io.File.getContent("script.lua");
+		var result = LuaL.dostring(vm, scriptContent);
+		
+		// Check the result if needed
+		if (result != 0) {
+			Sys.println("Error running script: " + result);
+		}
 
 		final stack:Int = Lua.gettop(vm);
 
