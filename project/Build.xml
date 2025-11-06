@@ -46,8 +46,11 @@
 		</section>
 
 		<section if="linux">
+			<!-- Ensure linker pulls all objects from static archive to resolve dependencies -->
+			<linkerflag value="-Wl,--whole-archive" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/x64/libluau.a" if="HXCPP_X86_64 || (HXCPP_M64 && !HXCPP_ARM64)" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/arm64/libluau.a" if="HXCPP_ARM64" />
+			<linkerflag value="-Wl,--no-whole-archive" />
 		</section>
 
 		<section if="android">
