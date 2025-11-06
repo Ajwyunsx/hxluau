@@ -36,7 +36,7 @@ class Main {
         // 读取并运行脚本文件
         Sys.println("\n--- Running script.lua ---");
         var scriptContent:String = sys.io.File.getContent("script.lua");
-        var result = LuaL.dostring(L, scriptContent);
+        LuaL.dostring(L, scriptContent);
         
         if (result != 0) {
             Sys.println("Error running script: " + result);
