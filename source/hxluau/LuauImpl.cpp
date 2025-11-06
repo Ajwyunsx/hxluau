@@ -68,4 +68,13 @@ int hxluau_LuaL_loadfile_wrapper(lua_State* L, const char* filename) {
     return loadResult;
 }
 
+// Wrapper for luaL_dostring functionality
+int hxluau_LuaL_dostring_wrapper(lua_State* L, const char* str) {
+    int loadResult = hxluau_LuaL_loadstring_wrapper(L, str);
+    if (loadResult == 0) {
+        return lua_pcall(L, 0, LUA_MULTRET, 0);
+    }
+    return loadResult;
+}
+
 }

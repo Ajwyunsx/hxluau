@@ -405,13 +405,8 @@ extern class LuaL
 	 * @paramstr The string to execute.
 	 * @return The result of the execution.
 	 */
-	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int {
-		final loadResult = loadstring(L, str);
-		if (loadResult == 0) {
-			return Lua.pcall(L, 0, Lua.MULTRET, 0);
-		}
-		return loadResult;
-	}
+	@:native("::hxluau::LuaL_dostring_wrapper")
+	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int;
 
 	/**
 	 * Gets the metatable for a name.
