@@ -61,7 +61,6 @@ jobs:
           echo '' >> CMakeLists.txt
           echo '# Collect all source files' >> CMakeLists.txt
           echo 'file(GLOB SOURCES "*.cpp")' >> CMakeLists.txt
-          echo 'list(FILTER SOURCES EXCLUDE REGEX "luau.*\.cpp$")' >> CMakeLists.txt
           echo '' >> CMakeLists.txt
           echo '# Create static library' >> CMakeLists.txt
           echo 'add_library(luau STATIC ${SOURCES})' >> CMakeLists.txt
@@ -116,7 +115,6 @@ jobs:
           echo. >> CMakeLists.txt
           echo # Collect all source files >> CMakeLists.txt
           echo file(GLOB SOURCES "*.cpp") >> CMakeLists.txt
-          echo list(FILTER SOURCES EXCLUDE REGEX "luau.*\\.cpp$") >> CMakeLists.txt
           echo. >> CMakeLists.txt
           echo # Create static library >> CMakeLists.txt
           echo add_library(luau STATIC ${SOURCES}) >> CMakeLists.txt
