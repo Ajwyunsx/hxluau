@@ -184,6 +184,7 @@ jobs:
       - name: Commit and push libraries
         if: github.event_name == 'push'
         run: |
+          git lfs install
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add project/luau/lib/
