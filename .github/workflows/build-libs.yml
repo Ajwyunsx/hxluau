@@ -111,11 +111,11 @@ jobs:
 
           cmake --build . --config Release
 
-          # Combine Luau libs into a single static library (recursive)
-          echo "Listing libLuau.*.a recursively:"
-          find . -name 'libLuau.*.a' -type f -print
+          # Combine ALL static archives into a single static library (recursive)
+          echo "Listing *.a archives recursively:"
+          find . -name '*.a' -type f -print
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
-            libs=$(find . -name 'libLuau.*.a' -type f)
+            libs=$(find . -name '*.a' -type f ! -name 'libluau.a')
             if [ -z "$libs" ]; then
               echo "No libLuau.*.a found"; exit 1
             fi
@@ -123,7 +123,7 @@ jobs:
             ranlib libluau.a
           else
             echo "create libluau.a" > combine.mri
-            find . -name 'libLuau.*.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+            find . -name '*.a' -type f ! -name 'libluau.a' -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
             echo "save" >> combine.mri
             echo "end" >> combine.mri
             ar -M < combine.mri
