@@ -3,7 +3,8 @@ package;
 import luau.Lua;
 import luau.LuaL;
 import luau.State;
-import luau.Lua_helper;
+import hxluau.LuaOpen;
+import hxluau.Types;
 
 /**
  * 示例：使用 source/luau 目录中的 Luau 绑定
@@ -43,20 +44,20 @@ class Main {
         trace("\n--- Example 2: Registering C++ Functions ---");
         
         // 定义一个 Haxe 函数，将被注册到 Luau
-        function myAddFunction(L:State):Int {
+        var myAddFunction:hxluau.Lua_CFunction = (L:State) -> {
             var a = LuaL.checknumber(L, 1);
             var b = LuaL.checknumber(L, 2);
             var result = a + b;
             Lua.pushnumber(L, result);
             return 1; // 返回值的数量
-        }
+        };
         
-        function myGreetFunction(L:State):Int {
+        var myGreetFunction:hxluau.Lua_CFunction = (L:State) -> {
             var name = LuaL.checkstring(L, 1);
             var greeting = "Hello, " + name + "!";
             Lua.pushstring(L, greeting);
             return 1;
-        }
+        };
         
         // 注册函数到 Luau
         Lua.pushcfunction(L, myAddFunction, "myAdd");
