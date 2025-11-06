@@ -2,6 +2,11 @@
 <xml>
 	<pragma once="true" />
 
+	<!-- Default to 64-bit builds on Windows unless ARM64 or M64 already set -->
+	<section if="windows" unless="HXCPP_M64 HXCPP_ARM64">
+		<set name="HXCPP_M64" />
+	</section>
+
 	<!--
 	  hxluau requires 64-bit builds on Windows.
 	  To avoid adding "-D HXCPP_M64" in every HXML, we set it here by default
@@ -14,8 +19,6 @@
 		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
 		<!-- Provide luaL_openlibs & luaL_newstate through wrapper that includes hxcpp PCH -->
 		<file name="${haxelib:hxluau}/source/hxluau/LuauInit.cpp" />
-		<!-- Default to 64-bit builds on Windows if no arch is specified -->
-		<flag value="-D HXCPP_M64" if="windows" unless="HXCPP_M64 HXCPP_ARM64" />
 	</files>
 
 	<files id="haxe">
@@ -47,7 +50,6 @@
 
 		<!-- Also enforce 64-bit on Windows at target level as a safeguard -->
 		<section if="windows">
-			<flag value="-D HXCPP_M64" unless="HXCPP_M64 HXCPP_ARM64" />
 		</section>
 
 		<section if="mingw">
