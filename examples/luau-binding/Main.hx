@@ -32,7 +32,7 @@ class Main {
             LuaL.error(L, "Not enough arguments to 'myGreet'");
         }
         
-        var name = cast(LuaL.checkstring(L, 1), String);
+        var name = LuaL.checkstring(L, 1);
         var greeting = "Hello, " + name + "!";
         Lua.pushstring(L, greeting);
         return 1;

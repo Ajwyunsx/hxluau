@@ -42,7 +42,8 @@ class Convert {
 					Lua.settable(l, -3);
 				}
 			default:
-				Sys.println('Couldn\'t convert "${Type.typeof(val)}" to Lua.');
+				final typeName = Std.string(Type.typeof(val));
+				Sys.println('Couldn\'t convert "${typeName}" to Lua.');
 		}
 	}
 
@@ -86,8 +87,12 @@ class Convert {
 					var v:DynamicAccess<Any> = {};
 					loopTable(l, idx, {
 						switch Lua.type(l, -2) {
-							case t if (t == Lua.TSTRING): v.set(cast(Lua.tostring(l, -2), String), fromLua(l, -1));
-							case t if (t == Lua.TNUMBER): v.set(Std.string(cast(Lua.tonumber(l, -2), Float)), fromLua(l, -1));
+							case t if (t == Lua.TSTRING): 
+								final key = Lua.tostring(l, -2);
+								v.set(key, fromLua(l, -1));
+							case t if (t == Lua.TNUMBER): 
+								final num = Lua.tonumber(l, -2);
+								v.set(Std.string(num), fromLua(l, -1));
 						}
 					});
 					cast v;
@@ -95,7 +100,8 @@ class Convert {
 			case type if (type == Lua.TFUNCTION):
 				return new LuaCallback(cpp.Pointer.fromRaw(l), Lua.ref(l, Lua.REGISTRYINDEX));
 			default:
-				Sys.println('Couldn\'t convert "${cast (Lua.typename(l, idx), String)}" to Haxe.');
+			final typeName = Lua.typename(l, idx);
+			Sys.println('Couldn\'t convert "${typeName}" to Haxe.');
 		}
 
 		return null;

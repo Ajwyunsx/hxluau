@@ -237,7 +237,8 @@ extern class Lua {
         for (i in 0...nargs) {
             final str = Lua.tostring(L, i + 1);
             if (str != null) {
-                Sys.println(cast(str, String));
+                final msg:String = str;
+                Sys.println(msg);
             }
         }
 
