@@ -18,8 +18,11 @@ class Main {
         
         // 计算所有参数的和
         for (i in 0...n) {
-            if (!Lua.isnumber(L, i + 1))
-                LuaL.error(L, "Incorrect argument to 'myAdd'");
+            if (!Lua.isnumber(L, i + 1)) {
+                Lua.pushstring(L, "Incorrect argument to 'myAdd'");
+                Lua.error(L);
+                return 0;
+            }
             sum += Lua.tonumber(L, i + 1);
         }
         
@@ -29,7 +32,9 @@ class Main {
     
     static function myGreetFunction(L:cpp.RawPointer<hxluau.Lua_State>):Int {
         if (Lua.gettop(L) < 1) {
-            LuaL.error(L, "Not enough arguments to 'myGreet'");
+            Lua.pushstring(L, "Not enough arguments to 'myGreet'");
+            Lua.error(L);
+            return 0;
         }
         
         var name = LuaL.checkstring(L, 1);

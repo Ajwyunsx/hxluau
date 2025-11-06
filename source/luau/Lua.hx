@@ -173,6 +173,9 @@ extern class Lua {
 	@:native('lua_pcall')
 	static function pcall(L:cpp.RawPointer<Lua_State>, nargs:Int, nresults:Int, errfunc:Int):Int;
 
+	@:native('lua_error')
+	static function error(L:cpp.RawPointer<Lua_State>):Int;
+
 	@:native('lua_tointeger')
 	static function tointeger(L:cpp.RawPointer<Lua_State>, idx:Int):Lua_Integer;
 
@@ -302,7 +305,9 @@ class Lua_helper {
 			}
 		} catch (e:Dynamic) {
 			if (sendErrorsToLua) {
-				LuaL.error(L, 'CALLBACK ERROR! ${e.message != null ? e.message : e}');
+				final errorMsg = 'CALLBACK ERROR! ${e.message != null ? e.message : e}';
+				Lua.pushstring(L, errorMsg);
+				Lua.error(L);
 				return 0;
 			}
 			trace(e);
