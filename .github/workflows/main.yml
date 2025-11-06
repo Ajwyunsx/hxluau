@@ -20,22 +20,52 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
+                  lfs: false
 
             - name: Setup MSVC Build Tools
               uses: ilammy/msvc-dev-cmd@v1
 
-            - name: Verify prebuilt Luau library (Windows x64)
+            - name: Verify or flag build (Windows x64)
               shell: cmd
               run: |
                   echo Verifying prebuilt library exists: project\luau\lib\Windows\x64\luau.lib
-                  if not exist "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib" (
-                      echo ERROR: Prebuilt luau.lib not found at project\luau\lib\Windows\x64\luau.lib
-                      dir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\"
+                  set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  if not exist "%LIB%" (
+                      echo Prebuilt luau.lib missing, will build locally.
+                      echo NEED_BUILD=1>> "%GITHUB_ENV%"
+                  ) else (
+                      rem Detect LFS pointer file (text header with git-lfs spec)
+                      findstr /C:"git-lfs" "%LIB%" >nul 2>&1 && (
+                          echo Detected LFS pointer instead of binary, will build locally.
+                          echo NEED_BUILD=1>> "%GITHUB_ENV%"
+                      ) || (
+                          echo Found valid prebuilt luau.lib:
+                          dir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\"
+                          echo NEED_BUILD=0>> "%GITHUB_ENV%"
+                      )
+                  )
+
+            - name: Download prebuilt Luau artifact (Windows x64)
+              if: env.NEED_BUILD == '1'
+              uses: dawidd6/action-download-artifact@v2
+              with:
+                  workflow: build-libs.yml
+                  workflow_conclusion: success
+                  branch: main
+                  name: luau-libs-Windows-x64
+                  path: _libs_win_x64
+
+            - name: Place downloaded library (Windows x64)
+              if: env.NEED_BUILD == '1'
+              shell: cmd
+              run: |
+                  if not exist "_libs_win_x64\luau.lib" (
+                      echo ERROR: Downloaded artifact missing luau.lib
+                      dir _libs_win_x64
                       exit /b 1
                   )
-                  echo Found prebuilt luau.lib:
-                  dir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\"
+                  mkdir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64" 2>nul
+                  copy /Y "_libs_win_x64\luau.lib" "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
@@ -58,25 +88,56 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
+                  lfs: false
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
               with:
                   haxe-version: 4.3.6
 
-            - name: Verify prebuilt Luau library (Linux x64)
+            - name: Verify or flag build (Linux x64)
               shell: bash
               run: |
                   set -e
                   LIB="project/luau/lib/Linux/x64/libluau.a"
                   echo "Verifying prebuilt library exists: $LIB"
-                  if [ ! -f "$LIB" ]; then
-                    echo "ERROR: Prebuilt $LIB not found"
+                  if [ -f "$LIB" ]; then
+                    # Detect LFS pointer (text file) vs actual archive
+                    if head -n 1 "$LIB" | grep -q "git-lfs"; then
+                      echo "Detected LFS pointer instead of binary, will build locally"
+                      echo "NEED_BUILD=1" >> "$GITHUB_ENV"
+                    else
+                      echo "Found prebuilt library:" && ls -la "$LIB"
+                      echo "NEED_BUILD=0" >> "$GITHUB_ENV"
+                    fi
+                  else
+                    echo "Prebuilt $LIB not found, will build locally"
                     ls -la project/luau/lib/Linux/x64/ || true
+                    echo "NEED_BUILD=1" >> "$GITHUB_ENV"
+                  fi
+
+            - name: Download prebuilt Luau artifact (Linux x64)
+              if: env.NEED_BUILD == '1'
+              uses: dawidd6/action-download-artifact@v2
+              with:
+                  workflow: build-libs.yml
+                  workflow_conclusion: success
+                  branch: main
+                  name: luau-libs-Linux-x64
+                  path: _libs_linux_x64
+
+            - name: Place downloaded library (Linux x64)
+              if: env.NEED_BUILD == '1'
+              shell: bash
+              run: |
+                  set -e
+                  if [ ! -f "_libs_linux_x64/libluau.a" ]; then
+                    echo "ERROR: Downloaded artifact missing libluau.a"
+                    ls -la _libs_linux_x64 || true
                     exit 1
                   fi
-                  echo "Found prebuilt library:" && ls -la "$LIB"
+                  mkdir -p project/luau/lib/Linux/x64
+                  cp -f _libs_linux_x64/libluau.a project/luau/lib/Linux/x64/libluau.a
 
             - name: Compiling
               run: |
@@ -94,14 +155,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: true
+                  lfs: false
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
               with:
                   haxe-version: 4.3.6
 
-            - name: Verify prebuilt Luau library (macOS)
+            - name: Verify or flag build (macOS)
               shell: bash
               run: |
                   set -e
@@ -112,12 +173,57 @@ jobs:
                     LIB="project/luau/lib/MacOS/x64/libluau.a"
                   fi
                   echo "Verifying prebuilt library exists: $LIB"
-                  if [ ! -f "$LIB" ]; then
-                    echo "ERROR: Prebuilt $LIB not found"
+                  if [ -f "$LIB" ]; then
+                    if head -n 1 "$LIB" | grep -q "git-lfs"; then
+                      echo "Detected LFS pointer instead of binary, will build locally"
+                      echo "NEED_BUILD=1" >> "$GITHUB_ENV"
+                    else
+                      echo "Found prebuilt library:" && ls -la "$LIB"
+                      echo "NEED_BUILD=0" >> "$GITHUB_ENV"
+                    fi
+                  else
+                    echo "Prebuilt $LIB not found, will build locally"
                     ls -la "$(dirname "$LIB")" || true
-                    exit 1
+                    echo "NEED_BUILD=1" >> "$GITHUB_ENV"
                   fi
-                  echo "Found prebuilt library:" && ls -la "$LIB"
+
+            - name: Download prebuilt Luau artifact (macOS arm64)
+              if: env.NEED_BUILD == '1' && runner.arch == 'ARM64'
+              uses: dawidd6/action-download-artifact@v2
+              with:
+                  workflow: build-libs.yml
+                  workflow_conclusion: success
+                  branch: main
+                  name: luau-libs-MacOS-arm64
+                  path: _libs_macos_arm64
+
+            - name: Place downloaded library (macOS arm64)
+              if: env.NEED_BUILD == '1' && runner.arch == 'ARM64'
+              shell: bash
+              run: |
+                  set -e
+                  test -f _libs_macos_arm64/libluau.a || { echo "ERROR: missing libluau.a"; ls -la _libs_macos_arm64 || true; exit 1; }
+                  mkdir -p project/luau/lib/MacOS/arm64
+                  cp -f _libs_macos_arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
+
+            - name: Download prebuilt Luau artifact (macOS x64)
+              if: env.NEED_BUILD == '1' && runner.arch == 'X64'
+              uses: dawidd6/action-download-artifact@v2
+              with:
+                  workflow: build-libs.yml
+                  workflow_conclusion: success
+                  branch: main
+                  name: luau-libs-MacOS-x64
+                  path: _libs_macos_x64
+
+            - name: Place downloaded library (macOS x64)
+              if: env.NEED_BUILD == '1' && runner.arch == 'X64'
+              shell: bash
+              run: |
+                  set -e
+                  test -f _libs_macos_x64/libluau.a || { echo "ERROR: missing libluau.a"; ls -la _libs_macos_x64 || true; exit 1; }
+                  mkdir -p project/luau/lib/MacOS/x64
+                  cp -f _libs_macos_x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
 
             - name: Compiling
               run: |
