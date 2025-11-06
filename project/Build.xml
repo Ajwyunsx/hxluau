@@ -28,19 +28,23 @@
 		<flag value="-fstack-protector" if="mingw" />
 
 		<section if="mingw">
-			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/luau.lib" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/x64/luau.lib" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/arm64/luau.lib" if="HXCPP_ARM64" />
 		</section>
 
 		<section if="windows">
-			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/luau.lib" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/x64/luau.lib" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/arm64/luau.lib" if="HXCPP_ARM64" />
 		</section>
 
 		<section if="macos">
-			<lib name="${haxelib:hxluau}/project/luau/lib/MacOS/libluau.a" if="HXCPP_M64 || HXCPP_ARM64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/MacOS/x64/libluau.a" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/MacOS/arm64/libluau.a" if="HXCPP_ARM64" />
 		</section>
 
 		<section if="linux">
-			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/libluau.a" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/x64/libluau.a" if="HXCPP_M64" />
+			<lib name="${haxelib:hxluau}/project/luau/lib/Linux/arm64/libluau.a" if="HXCPP_ARM64" />
 		</section>
 
 		<section if="android">
