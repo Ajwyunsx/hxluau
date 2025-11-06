@@ -30,20 +30,35 @@ jobs:
               run: |
                   echo Verifying prebuilt library exists: project\luau\lib\Windows\x64\luau.lib
                   set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  set NEED=0
                   if not exist "%LIB%" (
-                      echo Prebuilt luau.lib missing, will build locally.
-                      echo NEED_BUILD=1>> "%GITHUB_ENV%"
+                      echo Prebuilt luau.lib missing.
+                      set NEED=1
                   ) else (
-                      rem Detect LFS pointer file (text header with git-lfs spec)
+                      rem Detect LFS pointer file (contains 'git-lfs' spec marker)
                       findstr /C:"git-lfs" "%LIB%" >nul 2>&1 && (
-                          echo Detected LFS pointer instead of binary, will build locally.
-                          echo NEED_BUILD=1>> "%GITHUB_ENV%"
-                      ) || (
-                          echo Found valid prebuilt luau.lib:
-                          dir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\"
-                          echo NEED_BUILD=0>> "%GITHUB_ENV%"
+                          echo Detected LFS pointer instead of binary.
+                          set NEED=1
+                      )
+                      rem Check file size (pointer files are very small, < 1KB)
+                      for %%A in ("%LIB%") do set SIZE=%%~zA
+                      echo luau.lib size: %SIZE% bytes
+                      if not "%SIZE%"=="" if %SIZE% LSS 1024 (
+                          echo Library looks too small; flagging rebuild.
+                          set NEED=1
+                      )
+                      rem Validate COFF with dumpbin; if it errors, mark rebuild
+                      if %NEED%==0 (
+                          dumpbin /headers "%LIB%" >nul 2>&1
+                          if errorlevel 1 (
+                              echo dumpbin failed; luau.lib may be invalid.
+                              set NEED=1
+                          ) else (
+                              echo dumpbin succeeded; luau.lib appears valid.
+                          )
                       )
                   )
+                  echo NEED_BUILD=%NEED%>> "%GITHUB_ENV%"
 
             - name: Download prebuilt Luau artifact (Windows x64)
               if: env.NEED_BUILD == '1'
@@ -66,6 +81,23 @@ jobs:
                   )
                   mkdir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64" 2>nul
                   copy /Y "_libs_win_x64\luau.lib" "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+
+            - name: Validate library (Windows x64)
+              shell: cmd
+              run: |
+                  set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  if not exist "%LIB%" (
+                      echo ERROR: luau.lib not found after placement
+                      dir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\"
+                      exit /b 1
+                  )
+                  echo Validating COFF library with dumpbin...
+                  dumpbin /headers "%LIB%" >nul 2>&1
+                  if errorlevel 1 (
+                      echo ERROR: luau.lib appears invalid or corrupt (dumpbin failed)
+                      echo Tip: Ensure build-libs.yml produced a Windows MSVC .lib and the artifact is accessible.
+                      exit /b 1
+                  )
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
