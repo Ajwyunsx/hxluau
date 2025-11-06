@@ -1,0 +1,6 @@
+-cp ../../source
+-cp ./
+-D analyzer-optimize
+-lib hxluau
+-main Main
+-cpp bin
