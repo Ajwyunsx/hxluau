@@ -428,7 +428,6 @@ jobs:
           fi
 
       - name: Commit and push libraries
-        if: github.event_name == 'push'
         run: |
           git lfs install
           # Ensure LFS tracks library file types
@@ -445,3 +444,4 @@ jobs:
         env:
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
