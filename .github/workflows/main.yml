@@ -15,10 +15,113 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                sample: [alter-state, array, callback, ffi, module, override, pass-variable, return-value, simple-call, stack-dump]
+                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax]
         steps:
             - name: Checkout
-              uses: actions/checkout@main
+              uses: actions/checkout@v4
+              with:
+                  lfs: true
+
+            - name: Setup MSVC Build Tools
+              uses: ilammy/msvc-dev-cmd@v1
+
+            - name: Verify or flag build (Windows x64)
+              shell: cmd
+              run: |
+                  echo Verifying prebuilt library exists: project\luau\lib\Windows\x64\luau.lib
+                  set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  setlocal EnableDelayedExpansion
+                  set NEED=0
+                  if not exist "%LIB%" (
+                      echo Prebuilt luau.lib missing.
+                      set NEED=1
+                  ) else (
+                      rem Detect LFS pointer file (contains 'git-lfs' spec marker)
+                      findstr /C:"git-lfs" "%LIB%" >nul 2>&1 && (
+                          echo Detected LFS pointer instead of binary.
+                          set NEED=1
+                      )
+                      rem Check file size (pointer files are very small, < 1KB)
+                      for %%A in ("%LIB%") do set SIZE=%%~zA
+                      echo luau.lib size: !SIZE! bytes
+                      if not "!SIZE!"=="" (
+                          if !SIZE! LSS 1024 (
+                              echo Library looks too small; flagging rebuild.
+                              set NEED=1
+                          )
+                      )
+                      rem Validate COFF with dumpbin; if it errors, mark rebuild
+                      if !NEED! EQU 0 (
+                          dumpbin /headers "%LIB%" >nul 2>&1
+                          if errorlevel 1 (
+                              echo dumpbin failed; luau.lib may be invalid.
+                              set NEED=1
+                          ) else (
+                              echo dumpbin succeeded; luau.lib appears valid.
+                          )
+                      )
+                  )
+                  echo NEED_BUILD=!NEED!>> "%GITHUB_ENV%"
+
+            - name: Download prebuilt Luau artifact (Windows x64)
+              if: env.NEED_BUILD == '1'
+              uses: dawidd6/action-download-artifact@v2
+              with:
+                  workflow: build-libs.yml
+                  workflow_conclusion: success
+                  branch: main
+                  name: luau-libs-Windows-x64
+                  path: _libs_win_x64
+
+            - name: Place downloaded library (Windows x64)
+              if: env.NEED_BUILD == '1'
+              shell: cmd
+              run: |
+                  if not exist "_libs_win_x64\luau.lib" (
+                      echo ERROR: Downloaded artifact missing luau.lib
+                      dir _libs_win_x64
+                      exit /b 1
+                  )
+                  mkdir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64" 2>nul
+                  copy /Y "_libs_win_x64\luau.lib" "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+
+            - name: Validate library (Windows x64)
+              shell: cmd
+              run: |
+                  setlocal EnableDelayedExpansion
+                  set "LIB=%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\luau.lib"
+                  if not exist "%LIB%" (
+                      echo ERROR: luau.lib not found after placement
+                      dir "%GITHUB_WORKSPACE%\project\luau\lib\Windows\x64\"
+                      exit /b 1
+                  )
+
+                  rem Validate using dumpbin if available, and lib.exe /LIST as authoritative
+                  set INVALID=0
+
+                  rem Optional: dumpbin headers check
+                  where dumpbin >nul 2>&1 && (
+                      echo Validating COFF library with dumpbin...
+                      dumpbin /headers "%LIB%" >nul 2>&1
+                      if errorlevel 1 (
+                          echo Warning: dumpbin failed; proceeding to lib.exe validation.
+                      ) else (
+                          echo dumpbin succeeded.
+                      )
+                  ) || (
+                      echo dumpbin not found; skipping dumpbin validation.
+                  )
+
+                  rem Authoritative check: list members via lib.exe
+                  echo Validating library contents with lib.exe /LIST...
+                  lib.exe /NOLOGO /LIST "%LIB%" >nul 2>&1
+                  if errorlevel 1 (
+                      echo ERROR: lib.exe failed to read the library; luau.lib is invalid or corrupt.
+                      echo Tip: Ensure build-libs.yml produced a Windows MSVC .lib and the artifact is accessible.
+                      exit /b 1
+                  ) else (
+                      echo lib.exe validation succeeded; luau.lib appears valid.
+                  )
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
@@ -41,7 +144,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: false
+                  lfs: true
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
@@ -108,7 +211,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  lfs: false
+                  lfs: true
 
             - name: Setup Haxe
               uses: krdlab/setup-haxe@master
