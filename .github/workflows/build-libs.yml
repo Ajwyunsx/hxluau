@@ -56,9 +56,6 @@ jobs:
       - name: Build Luau library (Linux/macOS)
         if: matrix.os != 'windows-latest'
         run: |
-          # Create target directory before building
-          mkdir -p project/luau/lib/${{ matrix.target }}
-          
           # Navigate to Luau source directory
           cd project/luau
           
@@ -84,19 +81,23 @@ jobs:
             ar rcs libluau.a libLuau.Analysis.a libLuau.Ast.a libLuau.CodeGen.a libLuau.Compiler.a libLuau.Config.a libLuau.VM.a libLuau.EqSat.a libLuau.Require.a libLuau.CLI.lib.a
           fi
           
-          # Copy the combined library to the correct location using absolute path from repo root
-          cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          # Create a directory for the built library and copy it there
+          mkdir -p built_lib
+          cp libluau.a built_lib/libluau.a
           
-          # Debug: List files in target directory
-          echo "Files in target directory (from repo root):"
-          ls -la project/luau/lib/${{ matrix.target }}/
+          # Debug: List files in built_lib directory
+          echo "Files in built_lib directory:"
+          ls -la built_lib/
         shell: bash
 
       - name: Build Luau library (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          # Create target directory before building
-          mkdir project\luau\lib\${{ matrix.target }}
+          # Remove existing incomplete Luau source
+          rmdir /s /q project\luau
+          
+          # Clone official Luau repository
+          git clone https://github.com/luau-lang/luau.git project/luau
           
           # Navigate to Luau source directory
           cd project\luau
@@ -113,19 +114,20 @@ jobs:
           # Use lib.exe to combine all Luau libraries into one
           lib.exe /OUT:luau.lib Luau.Analysis.lib Luau.Ast.lib Luau.CodeGen.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.EqSat.lib Luau.Require.lib Luau.CLI.lib.lib
           
-          # Copy the combined library to the correct location using absolute path from repo root
-          copy luau.lib ..\..\project\luau\lib\${{ matrix.target }}\luau.lib
+          # Create a directory for the built library and copy it there
+          mkdir built_lib
+          copy luau.lib built_lib\luau.lib
           
-          # Debug: List files in target directory
-          echo Files in target directory (from repo root):
-          dir project\luau\lib\${{ matrix.target }}\
+          # Debug: List files in built_lib directory
+          echo Files in built_lib directory:
+          dir built_lib
         shell: cmd
 
-      - name: Upload Luau libraries
+      - name: Upload built libraries
         uses: actions/upload-artifact@v4
         with:
           name: luau-libs-${{ matrix.target }}
-          path: project/luau/lib/${{ matrix.target }}/*
+          path: project/luau/built_lib/*
           if-no-files-found: error
 
   combine-libs:
@@ -146,9 +148,29 @@ jobs:
 
       - name: Move artifacts to correct locations
         run: |
-          mv luau-libs-Linux/* project/luau/lib/Linux/ || echo "No Linux libs"
-          mv luau-libs-Windows/* project/luau/lib/Windows/ || echo "No Windows libs"
-          mv luau-libs-MacOS/* project/luau/lib/MacOS/ || echo "No MacOS libs"
+          # Move Linux library
+          if [ -d "luau-libs-Linux" ] && [ -f "luau-libs-Linux/libluau.a" ]; then
+            mv luau-libs-Linux/libluau.a project/luau/lib/Linux/libluau.a
+            echo "Moved Linux library"
+          else
+            echo "No Linux library found"
+          fi
+          
+          # Move Windows library
+          if [ -d "luau-libs-Windows" ] && [ -f "luau-libs-Windows/luau.lib" ]; then
+            mv luau-libs-Windows/luau.lib project/luau/lib/Windows/luau.lib
+            echo "Moved Windows library"
+          else
+            echo "No Windows library found"
+          fi
+          
+          # Move MacOS library
+          if [ -d "luau-libs-MacOS" ] && [ -f "luau-libs-MacOS/libluau.a" ]; then
+            mv luau-libs-MacOS/libluau.a project/luau/lib/MacOS/libluau.a
+            echo "Moved MacOS library"
+          else
+            echo "No MacOS library found"
+          fi
 
       - name: Commit and push libraries
         run: |
