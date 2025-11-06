@@ -15,7 +15,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax]
+                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax, luau-binding]
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -169,7 +169,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax]
+                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax, luau-binding]
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -270,7 +270,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax]
+                sample: [alter-state, array, callback, module, override, pass-variable, return-value, simple-call, stack-dump, luau-syntax, luau-binding]
         steps:
             - name: Checkout
               uses: actions/checkout@v4
