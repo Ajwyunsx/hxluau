@@ -71,8 +71,17 @@ jobs:
           fi
           cmake --build . --config Release
           
-          # Copy the library to the correct location
-          cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          # Find and copy the library to the correct location
+          # The library might be named differently depending on the build system
+          if [ -f "libluau.a" ]; then
+            cp libluau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          elif [ -f "libLuau.a" ]; then
+            cp libLuau.a ../../../project/luau/lib/${{ matrix.target }}/libluau.a
+          else
+            echo "Could not find library file"
+            ls -la .
+            exit 1
+          fi
         shell: bash
 
       - name: Build Luau library (Windows)
@@ -93,8 +102,17 @@ jobs:
           cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
           cmake --build . --config Release
           
-          # Copy the library to the correct location
-          copy luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
+          # Find and copy the library to the correct location
+          # The library might be named differently depending on the build system
+          if exist luau.lib (
+            copy luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
+          ) else if exist Luau.lib (
+            copy Luau.lib ..\..\..\project\luau\lib\${{ matrix.target }}\luau.lib
+          ) else (
+            echo Could not find library file
+            dir
+            exit /b 1
+          )
         shell: cmd
 
       - name: Upload Luau libraries
