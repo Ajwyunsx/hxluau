@@ -46,7 +46,7 @@ jobs:
                   cd project\luau_src
                   mkdir build
                   cd build
-                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
                   cmake --build . --config Release
 
                   REM Recursively collect Luau static libs and merge them
