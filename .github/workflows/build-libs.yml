@@ -53,8 +53,7 @@ jobs:
           cd project/luau/include
           
           # Create CMakeLists.txt for Luau
-          cat > CMakeLists.txt << 'EOF'
-cmake_minimum_required(VERSION 3.22)
+          echo 'cmake_minimum_required(VERSION 3.22)
 project(Luau LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -62,7 +61,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Collect all source files
 file(GLOB SOURCES "*.cpp")
-list(FILTER SOURCES EXCLUDE REGEX "luau.*\\.cpp$")
+list(FILTER SOURCES EXCLUDE REGEX "luau.*\.cpp$")
 
 # Create static library
 add_library(luau STATIC ${SOURCES})
@@ -80,8 +79,7 @@ endif()
 # Link math library on Unix-like systems
 if(UNIX AND NOT APPLE)
     target_link_libraries(luau m)
-endif()
-EOF
+endif()' > CMakeLists.txt
           
           # Build with CMake
           mkdir build
@@ -110,33 +108,33 @@ EOF
           cd project\luau\include
           
           # Create CMakeLists.txt for Luau
-          @echo cmake_minimum_required(VERSION 3.22) > CMakeLists.txt
-          @echo project(Luau LANGUAGES CXX) >> CMakeLists.txt
-          @echo. >> CMakeLists.txt
-          @echo set(CMAKE_CXX_STANDARD 17) >> CMakeLists.txt
-          @echo set(CMAKE_CXX_STANDARD_REQUIRED ON) >> CMakeLists.txt
-          @echo. >> CMakeLists.txt
-          @echo # Collect all source files >> CMakeLists.txt
-          @echo file(GLOB SOURCES "*.cpp") >> CMakeLists.txt
-          @echo list(FILTER SOURCES EXCLUDE REGEX "luau.*\\.cpp$") >> CMakeLists.txt
-          @echo. >> CMakeLists.txt
-          @echo # Create static library >> CMakeLists.txt
-          @echo add_library(luau STATIC ${SOURCES}) >> CMakeLists.txt
-          @echo. >> CMakeLists.txt
-          @echo # Set include directories >> CMakeLists.txt
-          @echo target_include_directories(luau PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) >> CMakeLists.txt
-          @echo. >> CMakeLists.txt
-          @echo # Compiler-specific options >> CMakeLists.txt
-          @echo if(MSVC) >> CMakeLists.txt
-          @echo     target_compile_options(luau PRIVATE /EHsc /O2) >> CMakeLists.txt
-          @echo else() >> CMakeLists.txt
-          @echo     target_compile_options(luau PRIVATE -O2 -fPIC) >> CMakeLists.txt
-          @echo endif() >> CMakeLists.txt
-          @echo. >> CMakeLists.txt
-          @echo # Link math library on Unix-like systems >> CMakeLists.txt
-          @echo if(UNIX AND NOT APPLE) >> CMakeLists.txt
-          @echo     target_link_libraries(luau m) >> CMakeLists.txt
-          @echo endif() >> CMakeLists.txt
+          echo cmake_minimum_required(VERSION 3.22) > CMakeLists.txt
+          echo project(Luau LANGUAGES CXX) >> CMakeLists.txt
+          echo. >> CMakeLists.txt
+          echo set(CMAKE_CXX_STANDARD 17) >> CMakeLists.txt
+          echo set(CMAKE_CXX_STANDARD_REQUIRED ON) >> CMakeLists.txt
+          echo. >> CMakeLists.txt
+          echo # Collect all source files >> CMakeLists.txt
+          echo file(GLOB SOURCES "*.cpp") >> CMakeLists.txt
+          echo list(FILTER SOURCES EXCLUDE REGEX "luau.*\\.cpp$") >> CMakeLists.txt
+          echo. >> CMakeLists.txt
+          echo # Create static library >> CMakeLists.txt
+          echo add_library(luau STATIC ${SOURCES}) >> CMakeLists.txt
+          echo. >> CMakeLists.txt
+          echo # Set include directories >> CMakeLists.txt
+          echo target_include_directories(luau PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) >> CMakeLists.txt
+          echo. >> CMakeLists.txt
+          echo # Compiler-specific options >> CMakeLists.txt
+          echo if(MSVC) >> CMakeLists.txt
+          echo     target_compile_options(luau PRIVATE /EHsc /O2) >> CMakeLists.txt
+          echo else() >> CMakeLists.txt
+          echo     target_compile_options(luau PRIVATE -O2 -fPIC) >> CMakeLists.txt
+          echo endif() >> CMakeLists.txt
+          echo. >> CMakeLists.txt
+          echo # Link math library on Unix-like systems >> CMakeLists.txt
+          echo if(UNIX AND NOT APPLE) >> CMakeLists.txt
+          echo     target_link_libraries(luau m) >> CMakeLists.txt
+          echo endif() >> CMakeLists.txt
           
           # Build with CMake
           mkdir build
