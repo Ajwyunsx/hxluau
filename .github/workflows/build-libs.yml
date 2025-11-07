@@ -86,44 +86,58 @@ jobs:
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
             # macOS: choose architecture via CMAKE_OSX_ARCHITECTURES
             if [ "${{ matrix.arch }}" = "x64" ]; then
-              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
             else
-              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
             fi
           else
             # Linux: use Ninja; install cross toolchain if arm64
             if [ "${{ matrix.arch }}" = "arm64" ]; then
               sudo apt-get update
               sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
-              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release \
+              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF \
                 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
                 -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
                 -DCMAKE_AR=/usr/bin/aarch64-linux-gnu-ar \
                 -DCMAKE_RANLIB=/usr/bin/aarch64-linux-gnu-ranlib
             else
-              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
             fi
           fi
 
-          cmake --build . --config Release
+          cmake --build . --config MinSizeRel
 
-          # Combine ALL static archives into a single static library (recursive)
-          echo "Listing *.a archives recursively:"
-          find . -name '*.a' -type f -print
+          # Combine MINIMAL static archives into a single static library (Ast/Compiler/Config/VM)
+          echo "Listing minimal libLuau.*.a recursively:"
+          find . -name 'libLuau.Ast.a' -type f -print || true
+          find . -name 'libLuau.Compiler.a' -type f -print || true
+          find . -name 'libLuau.Config.a' -type f -print || true
+          find . -name 'libLuau.VM.a' -type f -print || true
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
-            libs=$(find . -name '*.a' -type f ! -name 'libluau.a')
+            libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f) )
             if [ -z "$libs" ]; then
-              echo "No libLuau.*.a found"; exit 1
+              echo "No minimal libLuau.*.a found"; exit 1
             fi
             libtool -static -o libluau.a $libs
             ranlib libluau.a
           else
+            # Choose appropriate ar/ranlib for arch
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              AR_BIN=aarch64-linux-gnu-ar
+              RANLIB_BIN=aarch64-linux-gnu-ranlib
+            else
+              AR_BIN=ar
+              RANLIB_BIN=ranlib
+            fi
             echo "create libluau.a" > combine.mri
-            find . -name '*.a' -type f ! -name 'libluau.a' -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+            find . -name 'libLuau.Ast.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+            find . -name 'libLuau.Compiler.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+            find . -name 'libLuau.Config.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+            find . -name 'libLuau.VM.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
             echo "save" >> combine.mri
             echo "end" >> combine.mri
-            ar -M < combine.mri
-            ranlib libluau.a
+            $AR_BIN -M < combine.mri
+            $RANLIB_BIN libluau.a
           fi
 
           # Copy to built_lib
@@ -168,21 +182,23 @@ jobs:
           REM Build with CMake using Ninja generator
           mkdir build
           cd build
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-          cmake --build . --config Release
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake --build . --config MinSizeRel
 
-          REM Combine Luau libraries into one (recursive)
-          echo Listing Luau.*.lib recursively:
-          for /r %%f in (Luau.*.lib) do echo %%f
+          REM Combine minimal set of Luau libraries (Ast/Compiler/Config/VM)
+          echo Listing minimal Luau.*.lib recursively:
+          for /r %%f in (Luau.Ast.lib) do echo %%f
+          for /r %%f in (Luau.Compiler.lib) do echo %%f
+          for /r %%f in (Luau.Config.lib) do echo %%f
+          for /r %%f in (Luau.VM.lib) do echo %%f
 
           setlocal EnableDelayedExpansion
           set FILES=
-          rem Collect all candidate libs (include Luau.*.lib and other core libs if present)
-          for /r %%f in (*.lib) do (
-            if /I not "%%~nxf"=="luau.lib" (
-              set FILES=!FILES! "%%f"
-            )
-          )
+          rem Collect minimal candidate libs
+          for /r %%f in (Luau.Ast.lib) do set FILES=!FILES! "%%f"
+          for /r %%f in (Luau.Compiler.lib) do set FILES=!FILES! "%%f"
+          for /r %%f in (Luau.Config.lib) do set FILES=!FILES! "%%f"
+          for /r %%f in (Luau.VM.lib) do set FILES=!FILES! "%%f"
           if "!FILES!"=="" (
             echo No .lib files found to merge. Failing.
             exit /b 1
@@ -285,19 +301,26 @@ jobs:
           if [ -n "$ANDROID_NDK_ROOT" ]; then NDK="$ANDROID_NDK_ROOT"; else NDK="$ANDROID_NDK_HOME"; fi
 
           cmake .. -G "Ninja" \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI="${{ matrix.android_abi }}" \
             -DANDROID_PLATFORM=android-21 \
-            -DANDROID_STL=c++_static
+            -DANDROID_STL=c++_static \
+            -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
 
-          cmake --build . --config Release
+          cmake --build . --config MinSizeRel
 
-          # Combine Luau libraries into one output per ABI (recursive)
-          echo "Listing libLuau.*.a recursively:"
-          find . -name 'libLuau.*.a' -type f -print
+          # Combine MINIMAL Luau libraries into one output per ABI (Ast/Compiler/Config/VM)
+          echo "Listing minimal libLuau.*.a recursively:"
+          find . -name 'libLuau.Ast.a' -type f -print || true
+          find . -name 'libLuau.Compiler.a' -type f -print || true
+          find . -name 'libLuau.Config.a' -type f -print || true
+          find . -name 'libLuau.VM.a' -type f -print || true
           echo "create ${{ matrix.lib_name }}" > combine.mri
-          find . -name 'libLuau.*.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+          find . -name 'libLuau.Ast.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+          find . -name 'libLuau.Compiler.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+          find . -name 'libLuau.Config.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+          find . -name 'libLuau.VM.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
           echo "save" >> combine.mri
           echo "end" >> combine.mri
           ar -M < combine.mri
@@ -350,17 +373,17 @@ jobs:
           cd build
 
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
           else
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
           fi
 
-          cmake --build . --config Release
+          cmake --build . --config MinSizeRel
 
-          # Combine Luau libraries (recursive)
-          libs=$(find . -name 'libLuau.*.a' -type f)
+          # Combine MINIMAL Luau libraries (Ast/Compiler/Config/VM)
+          libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f) )
           if [ -z "$libs" ]; then
-            echo "No libLuau.*.a found"; exit 1
+            echo "No minimal libLuau.*.a found"; exit 1
           fi
           libtool -static -o "${{ matrix.lib_name }}" $libs
           ranlib "${{ matrix.lib_name }}"
@@ -385,6 +408,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: false
+          persist-credentials: true
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -488,5 +512,17 @@ jobs:
             echo "No iOS x64 library found"
           fi
 
-      # Removed commit step to avoid storing binaries via Git LFS and hitting quota
+      - name: Commit and push updated libraries
+        shell: bash
+        run: |
+          set -e
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -f project/luau/lib/
+          if git diff --cached --quiet; then
+            echo "No changes to commit; skipping push."
+          else
+            git commit -m "chore: update prebuilt luau libraries [skip ci]"
+            git push origin HEAD:main
+          fi
 
