@@ -1,0 +1,8 @@
+-cp ./
+-D analyzer-optimize
+-D HXCPP_M64
+-lib hxluau
+-main Main
+-cpp bin
+-cmd xcopy script.lua bin\ /Y /Q >nul 2>&1
+-cmd bin\Main.exe

@@ -120,3 +120,21 @@ void hxluau_register_print(lua_State* L) {
 }
 
 }
+
+// Provide graceful stubs for Luau native codegen APIs when the linked Luau library
+// doesn't export them. This avoids unresolved externals at link time and lets
+// higher-level code feature-detect support. Use C++ symbols to match Haxe/C++ calls.
+int luau_codegen_supported(void) {
+    return 0; // codegen not available by default in this distribution
+}
+
+void luau_codegen_create(lua_State* L) {
+    // no-op stub
+    (void)L;
+}
+
+void luau_codegen_compile(lua_State* L, int idx) {
+    // no-op stub
+    (void)L;
+    (void)idx;
+}

@@ -1,21 +1,38 @@
-package hxluau;
+package hxluajit;
 
 #if !cpp
-#error 'Luau supports only C++ target platforms.'
+#error 'LuaJIT supports only C++ target platforms.'
 #end
-import hxluau.Types;
+import hxluajit.Types;
 
 /**
  * Provides access to Lua's auxiliary library functions.
  */
-@:buildXml('<include name="${haxelib:hxluau}/project/Build.xml" />')
-@:include('lua.h')
-@:include('lualib.h')
-@:include('luacode.h')
-@:include('hxluau/LuauImpl.h')
+@:buildXml('<include name="${haxelib:linc_luajit}/project/Build.xml" />')
+@:include('lua.hpp')
 @:unreflective
-extern class LuaL
-{
+extern class LuaL {
+	/**
+	 * Opens a library.
+	 *
+	 * @param L The Lua state.
+	 * @param libname The name of the library.
+	 * @param l The array of library functions.
+	 * @param nup The number of upvalues.
+	 */
+	@:native('luaL_openlib')
+	static function openlib(L:cpp.RawPointer<Lua_State>, libname:cpp.ConstCharStar, l:cpp.RawConstPointer<LuaL_Reg>, nup:Int):Void;
+
+	/**
+	 * Registers a library.
+	 *
+	 * @param L The Lua state.
+	 * @param libname The name of the library.
+	 * @param l The array of library functions.
+	 */
+	@:native('luaL_register')
+	static function register(L:cpp.RawPointer<Lua_State>, libname:cpp.ConstCharStar, l:cpp.RawConstPointer<LuaL_Reg>):Void;
+
 	/**
 	 * Gets a metafield.
 	 *
@@ -37,6 +54,17 @@ extern class LuaL
 	 */
 	@:native('luaL_callmeta')
 	static function callmeta(L:cpp.RawPointer<Lua_State>, obj:Int, e:cpp.ConstCharStar):Int;
+
+	/**
+	 * Raises a type error.
+	 *
+	 * @param L The Lua state.
+	 * @param narg The argument index.
+	 * @param tname The expected type name.
+	 * @return The error code.
+	 */
+	@:native('luaL_typeerror')
+	static function typeerror(L:cpp.RawPointer<Lua_State>, narg:Int, tname:cpp.ConstCharStar):Int;
 
 	/**
 	 * Raises an argument error.
@@ -215,7 +243,7 @@ extern class LuaL
 	 * @param t The index of the table.
 	 * @return The reference index.
 	 */
-	@:native('lua_ref')
+	@:native('luaL_ref')
 	static function ref(L:cpp.RawPointer<Lua_State>, t:Int):Int;
 
 	/**
@@ -225,8 +253,40 @@ extern class LuaL
 	 * @param t The index of the table.
 	 * @param ref The reference index.
 	 */
-	@:native('lua_unref')
+	@:native('luaL_unref')
 	static function unref(L:cpp.RawPointer<Lua_State>, t:Int, ref:Int):Void;
+
+	/**
+	 * Loads a file.
+	 *
+	 * @param L The Lua state.
+	 * @param filename The name of the file to load.
+	 * @return The result of the load operation.
+	 */
+	@:native('luaL_loadfile')
+	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
+
+	/**
+	 * Loads a buffer.
+	 *
+	 * @param L The Lua state.
+	 * @param buff The buffer to load.
+	 * @param sz The size of the buffer.
+	 * @param name The name of the buffer.
+	 * @return The result of the load operation.
+	 */
+	@:native('luaL_loadbuffer')
+	static function loadbuffer(L:cpp.RawPointer<Lua_State>, buff:cpp.ConstCharStar, sz:cpp.SizeT, name:cpp.ConstCharStar):Int;
+
+	/**
+	 * Loads a string.
+	 *
+	 * @param L The Lua state.
+	 * @param s The string to load.
+	 * @return The result of the load operation.
+	 */
+	@:native('luaL_loadstring')
+	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int;
 
 	/**
 	 * Creates a new Lua state.
@@ -282,6 +342,30 @@ extern class LuaL
 	static function execresult(L:cpp.RawPointer<Lua_State>, stat:Int):Int;
 
 	/**
+	 * Loads a file with a specified mode.
+	 *
+	 * @param L The Lua state.
+	 * @param filename The name of the file.
+	 * @param mode The mode to use.
+	 * @return The result of the load operation.
+	 */
+	@:native('luaL_loadfilex')
+	static function loadfilex(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar, mode:cpp.ConstCharStar):Int;
+
+	/**
+	 * Loads a buffer with a specified mode.
+	 *
+	 * @param L The Lua state.
+	 * @param buff The buffer to load.
+	 * @param sz The size of the buffer.
+	 * @param name The name of the buffer.
+	 * @param mode The mode to use.
+	 * @return The result of the load operation.
+	 */
+	@:native('luaL_loadbufferx')
+	static function loadbufferx(L:cpp.RawPointer<Lua_State>, buff:cpp.ConstCharStar, sz:cpp.SizeT, name:cpp.ConstCharStar, mode:cpp.ConstCharStar):Int;
+
+	/**
 	 * Generates a traceback.
 	 *
 	 * @param L The Lua state.
@@ -301,6 +385,16 @@ extern class LuaL
 	 */
 	@:native('luaL_setfuncs')
 	static function setfuncs(L:cpp.RawPointer<Lua_State>, l:cpp.RawConstPointer<LuaL_Reg>, nup:Int):Void;
+
+	/**
+	 * Pushes a module onto the stack.
+	 *
+	 * @param L The Lua state.
+	 * @param modname The name of the module.
+	 * @param sizehint The size hint.
+	 */
+	@:native('luaL_pushmodule')
+	static function pushmodule(L:cpp.RawPointer<Lua_State>, modname:cpp.ConstCharStar, sizehint:Int):Void;
 
 	/**
 	 * Tests userdata.
@@ -376,6 +470,27 @@ extern class LuaL
 	static function optint(L:cpp.RawPointer<Lua_State>, n:Int, d:Lua_Integer):Int;
 
 	/**
+	 * Checks and returns a long argument.
+	 *
+	 * @param L The Lua state.
+	 * @param n The argument index.
+	 * @return The long.
+	 */
+	@:native('luaL_checklong')
+	static function checklong(L:cpp.RawPointer<Lua_State>, n:Int):cpp.Long;
+
+	/**
+	 * Returns an optional long argument.
+	 *
+	 * @param L The Lua state.
+	 * @param n The argument index.
+	 * @param d The default long.
+	 * @return The long.
+	 */
+	@:native('luaL_optlong')
+	static function optlong(L:cpp.RawPointer<Lua_State>, n:Int, d:Lua_Integer):cpp.Long;
+
+	/**
 	 * Returns the type name of an argument.
 	 *
 	 * @param L The Lua state.
@@ -392,10 +507,8 @@ extern class LuaL
 	 * @param filename The name of the file.
 	 * @return The result of the execution.
 	 */
-	inline static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int {
-		// Implemented in C++ via hxluau wrapper: compile + pcall
-		return hxluau_dofile(L, filename);
-	}
+	@:native('luaL_dofile')
+	static function dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
 
 	/**
 	 * Executes a string.
@@ -404,16 +517,8 @@ extern class LuaL
 	 * @paramstr The string to execute.
 	 * @return The result of the execution.
 	 */
-	@:native("hxluau_LuaL_dostring_wrapper")
+	@:native('luaL_dostring')
 	static function dostring(L:cpp.RawPointer<Lua_State>, str:cpp.ConstCharStar):Int;
-
-	/**
-	 * Registers custom print implementation into global 'print'.
-	 *
-	 * @param L The Lua state.
-	 */
-	@:native("hxluau_register_print")
-	static function registerPrint(L:cpp.RawPointer<Lua_State>):Void;
 
 	/**
 	 * Gets the metatable for a name.
@@ -432,7 +537,7 @@ extern class LuaL
 	 * @param l The library registration array.
 	 */
 	@:native('luaL_newlibtable')
-	static function newlibtable(L:cpp.RawPointer<Lua_State>, l:cpp.RawConstPointer<LuaL_Reg>):Void;
+	static function newlibtable(L:cpp.RawPointer<Lua_State>, l:LuaL_Reg):Void;
 
 	/**
 	 * Creates a new library.
@@ -441,7 +546,7 @@ extern class LuaL
 	 * @param l The library registration array.
 	 */
 	@:native('luaL_newlib')
-	static function newlib(L:cpp.RawPointer<Lua_State>, l:cpp.RawConstPointer<LuaL_Reg>):Void;
+	static function newlib(L:cpp.RawPointer<Lua_State>, l:LuaL_Reg):Void;
 
 	/**
 	 * Adds a character to a buffer.
@@ -531,35 +636,5 @@ extern class LuaL
 	 * @return The result of the operation.
 	 */
 	@:native('luaL_openlibs')
-	static function openlibs(L:cpp.RawPointer<Lua_State>):Void;
-	
-	/**
-	 * Loads a file for Luau, requires separate compilation step via luau_compile.
-	 *
-	 * @param L The Lua state.
-	 * @param filename The name of the file to load.
-	 * @return The result of the load operation.
-	 */
-	@:native("hxluau_LuaL_loadfile_wrapper")
-	static function loadfile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
-
-	/**
-	 * Loads a string for Luau, requires separate compilation step via luau_compile.
-	 *
-	 * @param L The Lua state.
-	 * @param s The string to load.
-	 * @return The result of the load operation.
-	 */
-	@:native("hxluau_LuaL_loadstring_wrapper")
-	static function loadstring(L:cpp.RawPointer<Lua_State>, s:cpp.ConstCharStar):Int;
-
-	/**
-	 * Executes a Lua file (compile with Luau and pcall).
-	 *
-	 * @param L The Lua state.
-	 * @param filename The name of the file.
-	 * @return The status code (0 on success).
-	 */
-	@:native("hxluau_LuaL_dofile_wrapper")
-	private static function hxluau_dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
+	static function openlibs(L:cpp.RawPointer<Lua_State>):Int;
 }

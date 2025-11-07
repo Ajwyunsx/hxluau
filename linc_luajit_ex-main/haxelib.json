@@ -1,0 +1,20 @@
+{
+	"name": "linc_luajit",
+	"url": "https://github.com/MAJigsaw77/hxluajit",
+	"license": "MIT",
+	"tags": [
+		"cpp",
+		"luajit",
+		"haxe"
+	],
+	"description": "Haxe/hxcpp @:native bindings for LuaJIT.",
+	"version": "1.0.3",
+	"releasenote": "Added documentation and updated LuaJIT libs.",
+	"contributors": [
+		"MAJigsaw77"
+	],
+	"classPath": "source",
+	"dependencies": {
+		"hxcpp": ""
+	}
+}

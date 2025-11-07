@@ -11,49 +11,73 @@ import hxluau.Types;
 @:include('luacode.h')
 @:unreflective
 extern class Lua {
-	public static inline var LUA_MULTRET:Int = (-1);
-	public static inline var LUA_REGISTRYINDEX:Int = (-10000);
-	public static inline var LUA_ENVIRONINDEX:Int = (-10001);
-	public static inline var LUA_GLOBALSINDEX:Int = (-10002);
-	public static inline var LUA_OK:Int = 0;
-	public static inline var LUA_YIELD:Int = 1;
-	public static inline var LUA_ERRRUN:Int = 2;
-	public static inline var LUA_ERRSYNTAX:Int = 3;
-	public static inline var LUA_ERRMEM:Int = 4;
-	public static inline var LUA_ERRERR:Int = 5;
-	public static inline var LUA_TNONE:Int = (-1);
-	public static inline var LUA_TNIL:Int = 0;
-	public static inline var LUA_TBOOLEAN:Int = 1;
-	public static inline var LUA_TLIGHTUSERDATA:Int = 2;
-	public static inline var LUA_TNUMBER:Int = 3;
-	public static inline var LUA_TSTRING:Int = 4;
-	public static inline var LUA_TTABLE:Int = 5;
-	public static inline var LUA_TFUNCTION:Int = 6;
-	public static inline var LUA_TUSERDATA:Int = 7;
-	public static inline var LUA_TTHREAD:Int = 8;
-	public static inline var LUA_MINSTACK:Int = 20;
+    // Constant values must match the underlying Luau build; use hxluau.Lua bindings
+    public static var LUA_MULTRET(get, never):Int;
+    static inline function get_LUA_MULTRET():Int return hxluau.Lua.MULTRET;
 
-	// Luau-style constant aliases for compatibility
-	public static inline var MULTRET:Int = LUA_MULTRET;
-	public static inline var REGISTRYINDEX:Int = LUA_REGISTRYINDEX;
-	public static inline var ENVIRONINDEX:Int = LUA_ENVIRONINDEX;
-	public static inline var GLOBALSINDEX:Int = LUA_GLOBALSINDEX;
-	public static inline var OK:Int = LUA_OK;
-	public static inline var YIELD:Int = LUA_YIELD;
-	public static inline var ERRRUN:Int = LUA_ERRRUN;
-	public static inline var ERRSYNTAX:Int = LUA_ERRSYNTAX;
-	public static inline var ERRMEM:Int = LUA_ERRMEM;
-	public static inline var ERRERR:Int = LUA_ERRERR;
-	public static inline var TNONE:Int = LUA_TNONE;
-	public static inline var TNIL:Int = LUA_TNIL;
-	public static inline var TBOOLEAN:Int = LUA_TBOOLEAN;
-	public static inline var TLIGHTUSERDATA:Int = LUA_TLIGHTUSERDATA;
-	public static inline var TNUMBER:Int = LUA_TNUMBER;
-	public static inline var TSTRING:Int = LUA_TSTRING;
-	public static inline var TTABLE:Int = LUA_TTABLE;
-	public static inline var TFUNCTION:Int = LUA_TFUNCTION;
-	public static inline var TUSERDATA:Int = LUA_TUSERDATA;
-	public static inline var TTHREAD:Int = LUA_TTHREAD;
+    public static var LUA_REGISTRYINDEX(get, never):Int;
+    static inline function get_LUA_REGISTRYINDEX():Int return hxluau.Lua.REGISTRYINDEX;
+
+    // Legacy indices (not provided by Luau C macros); keep defaults
+    public static inline var LUA_ENVIRONINDEX:Int = (-10001);
+    public static inline var LUA_GLOBALSINDEX:Int = (-10002);
+
+    // Status codes (inline for pattern matching)
+    public static inline var LUA_OK:Int = 0;
+    public static inline var LUA_YIELD:Int = 1;
+    public static inline var LUA_ERRRUN:Int = 2;
+    public static inline var LUA_ERRSYNTAX:Int = 3;
+    public static inline var LUA_ERRMEM:Int = 4;
+    public static inline var LUA_ERRERR:Int = 5;
+
+    // Type codes (inline for pattern matching)
+    public static inline var LUA_TNONE:Int = -1;
+    public static inline var LUA_TNIL:Int = 0;
+    public static inline var LUA_TBOOLEAN:Int = 1;
+    public static inline var LUA_TLIGHTUSERDATA:Int = 2;
+    public static inline var LUA_TNUMBER:Int = 3;
+    public static inline var LUA_TSTRING:Int = 5;
+    public static inline var LUA_TTABLE:Int = 6;
+    public static inline var LUA_TFUNCTION:Int = 7;
+    public static inline var LUA_TUSERDATA:Int = 8;
+    public static inline var LUA_TTHREAD:Int = 9;
+
+    public static var LUA_MINSTACK(get, never):Int;
+    static inline function get_LUA_MINSTACK():Int return hxluau.Lua.MINSTACK;
+
+	// GC operation constants (Luau)
+	@:native('LUA_GCSTOP') public static var LUA_GCSTOP:Int;
+	@:native('LUA_GCRESTART') public static var LUA_GCRESTART:Int;
+	@:native('LUA_GCCOLLECT') public static var LUA_GCCOLLECT:Int;
+	@:native('LUA_GCCOUNT') public static var LUA_GCCOUNT:Int;
+	@:native('LUA_GCCOUNTB') public static var LUA_GCCOUNTB:Int;
+	@:native('LUA_GCSTEP') public static var LUA_GCSTEP:Int;
+	@:native('LUA_GCSETGOAL') public static var LUA_GCSETGOAL:Int;
+	@:native('LUA_GCSETSTEPMUL') public static var LUA_GCSETSTEPMUL:Int;
+	@:native('LUA_GCISRUNNING') public static var LUA_GCISRUNNING:Int;
+	@:native('LUA_GCSETSTEPSIZE') public static var LUA_GCSETSTEPSIZE:Int;
+
+    // Luau-style aliases (inline) for external code using patterns
+    public static inline var MULTRET:Int = -1;
+    public static inline var REGISTRYINDEX:Int = -10000; // LUA_REGISTRYINDEX = -LUAI_MAXCSTACK(8000) - 2000
+    public static inline var ENVIRONINDEX:Int = LUA_ENVIRONINDEX;
+    public static inline var GLOBALSINDEX:Int = LUA_GLOBALSINDEX;
+    public static inline var OK:Int = LUA_OK;
+    public static inline var YIELD:Int = LUA_YIELD;
+    public static inline var ERRRUN:Int = LUA_ERRRUN;
+    public static inline var ERRSYNTAX:Int = LUA_ERRSYNTAX;
+    public static inline var ERRMEM:Int = LUA_ERRMEM;
+    public static inline var ERRERR:Int = LUA_ERRERR;
+    public static inline var TNONE:Int = LUA_TNONE;
+    public static inline var TNIL:Int = LUA_TNIL;
+    public static inline var TBOOLEAN:Int = LUA_TBOOLEAN;
+    public static inline var TLIGHTUSERDATA:Int = LUA_TLIGHTUSERDATA;
+    public static inline var TNUMBER:Int = LUA_TNUMBER;
+    public static inline var TSTRING:Int = LUA_TSTRING;
+    public static inline var TTABLE:Int = LUA_TTABLE;
+    public static inline var TFUNCTION:Int = LUA_TFUNCTION;
+    public static inline var TUSERDATA:Int = LUA_TUSERDATA;
+    public static inline var TTHREAD:Int = LUA_TTHREAD;
         @:functionCode('return ::String("Luau")')
     public static inline function versionJIT():String return "";
         @:functionCode('return ::String("Luau")')
@@ -87,8 +111,8 @@ extern class Lua {
 		pushcclosurek(L, fn, debugname, n, null);
 	}
 
-	static inline function pushcfunction(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction, debugname:cpp.ConstCharStar):Void {
-		pushcclosurek(L, fn, debugname, 0, null);
+	static inline function pushcfunction(L:cpp.RawPointer<Lua_State>, fn:Lua_CFunction, ?debugname:cpp.ConstCharStar):Void {
+		pushcclosurek(L, fn, debugname != null ? debugname : "", 0, null);
 	}
 
 	@:noCompletion
@@ -128,6 +152,19 @@ extern class Lua {
 
 	@:native('lua_gettop')
 	static function gettop(L:cpp.RawPointer<Lua_State>):Int;
+
+    @:native('lua_settop')
+    static function settop(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
+
+    // Stack manipulation helpers
+    @:native('lua_remove')
+    static function remove(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
+
+    @:native('lua_insert')
+    static function insert(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
+
+    @:native('lua_replace')
+    static function replace(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
 
 	@:native('lua_upvalueindex')
 	static function upvalueindex(i:Int):Int;
@@ -181,6 +218,10 @@ extern class Lua {
 	@:native('lua_error')
 	static function error(L:cpp.RawPointer<Lua_State>):Int;
 
+	// GC operation entry point
+	@:native('lua_gc')
+	static function gc(L:cpp.RawPointer<Lua_State>, what:Int, data:Int):Int;
+
 	@:native('lua_tointeger')
 	static function tointeger(L:cpp.RawPointer<Lua_State>, idx:Int):Lua_Integer;
 
@@ -202,8 +243,24 @@ extern class Lua {
 	@:native('lua_setmetatable')
 	static function setmetatable(L:cpp.RawPointer<Lua_State>, objindex:Int):Int;
 
-	@:native('lua_rawgeti')
-	static function rawgeti(L:cpp.RawPointer<Lua_State>, idx:Int, n:Int):Int;
+	// Environment manipulation & safety (Luau extensions)
+	@:native('lua_getfenv')
+	static function getfenv(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
+
+	@:native('lua_setfenv')
+	static function setfenv(L:cpp.RawPointer<Lua_State>, idx:Int):Int;
+
+	@:native('lua_setreadonly')
+	static function setreadonly(L:cpp.RawPointer<Lua_State>, idx:Int, enabled:Int):Void;
+
+	@:native('lua_getreadonly')
+	static function getreadonly(L:cpp.RawPointer<Lua_State>, idx:Int):Int;
+
+	@:native('lua_setsafeenv')
+	static function setsafeenv(L:cpp.RawPointer<Lua_State>, idx:Int, enabled:Int):Void;
+
+    @:native('lua_rawgeti')
+    static function rawgeti(L:cpp.RawPointer<Lua_State>, idx:Int, n:Int):Int;
 
 	@:native('lua_rawget')
 	static function rawget(L:cpp.RawPointer<Lua_State>, idx:Int):Int;
@@ -217,8 +274,13 @@ extern class Lua {
 	@:native('lua_ref')
 	static function ref(L:cpp.RawPointer<Lua_State>, t:Int):Int;
 
-	@:native('lua_unref')
-	static function unref(L:cpp.RawPointer<Lua_State>, ref:Int):Void;
+    @:native('lua_unref')
+    static function unref(L:cpp.RawPointer<Lua_State>, ref:Int):Void;
+
+    // Convenience wrapper for lua_getref macro
+    static inline function getref(L:cpp.RawPointer<Lua_State>, ref:Int):Void {
+        rawgeti(L, LUA_REGISTRYINDEX, ref);
+    }
 
     static inline function register(L:cpp.RawPointer<Lua_State>, name:cpp.ConstCharStar, f:Lua_CFunction):Void {
         Lua.pushcfunction(L, f, name);
@@ -260,67 +322,133 @@ extern class Lua {
 		@:privateAccess
 		Lua_helper.callbacks_function = f;
 	}
+
+    // Provide wrapper for retrieving C function pointer from stack for compatibility
+    @:native('lua_tocfunction')
+    static function tocfunction(L:cpp.RawPointer<Lua_State>, idx:Int):Lua_CFunction;
 }
 
 class Lua_helper {
-	public static var sendErrorsToLua:Bool = true;
-	public static var callbacks:Map<String, Dynamic> = new Map();
+    public static var sendErrorsToLua:Bool = true;
+    // Legacy name-based map (used for compatibility fallback only)
+    public static var callbacks:Map<String, Dynamic> = new Map();
+    // Fast-path storage by integer id to reduce lookup overhead and memory churn
+    static var callbacksById:haxe.ds.IntMap<Dynamic> = new haxe.ds.IntMap();
+    // Track IDs associated with a given callback name to enable precise cleanup
+    static var nameToIds:haxe.ds.StringMap<Array<Int>> = new haxe.ds.StringMap();
+    // Pool of freed IDs so we can reuse and keep the map compact
+    static var freeIds:Array<Int> = [];
+    static var nextCallbackId:Int = 1;
 
 	@:noCompletion
 	private static var callbacks_function:cpp.Callable<State->String->Int> = null;
 
-	public static function add_callback(L:cpp.RawPointer<Lua_State>, fname:String, f:Dynamic):Bool {
-		callbacks.set(fname, f);
-        Lua.pushstring(L, fname);
+    public static function add_callback(L:cpp.RawPointer<Lua_State>, fname:String, f:Dynamic):Int {
+        // Keep name-based map for legacy inbound calls (rare)
+        callbacks.set(fname, f);
+
+        var id:Int = (freeIds.length > 0 ? freeIds.pop() : nextCallbackId++);
+        callbacksById.set(id, f);
+
+        var ids = nameToIds.get(fname);
+        if (ids == null) {
+            ids = [];
+            nameToIds.set(fname, ids);
+        }
+        ids.push(id);
+
+        // Use integer id in upvalue for faster lookup; keep global name as fname
+        Lua.pushinteger(L, id);
         Lua.pushcclosure(L, cpp.Callable.fromStaticFunction(callback_handler), fname, 1);
         Lua.setglobal(L, fname);
-		return true;
-	}
+        return id;
+    }
 
-	public function remove_callback(L:cpp.RawPointer<Lua_State>, key:String) {
-		if (L == null)
-			return;
+    public static function remove_callback(L:cpp.RawPointer<Lua_State>, key:String):Void {
+        if (L == null)
+            return;
 
-		callbacks.remove(key);
-
+        // Remove global closure from this state
         Lua.pushnil(L);
         Lua.setglobal(L, key);
-	}
 
-	private static function callback_handler(L:cpp.RawPointer<Lua_State>):Int {
-		if (callbacks_function != null)
-			return callbacks_function(L, cast(Lua.tostring(L, Lua.upvalueindex(1)), String));
+        // Clean legacy name-based map
+        callbacks.remove(key);
 
-		try {
+        // Clean all ids associated with this name
+        var ids = nameToIds.get(key);
+        if (ids != null) {
+            for (id in ids) {
+                callbacksById.remove(id);
+                freeIds.push(id);
+            }
+            nameToIds.remove(key);
+        }
+    }
+
+    public static function remove_callbacks_by_names(L:cpp.RawPointer<Lua_State>, names:Array<String>):Void {
+        if (names == null) return;
+        for (name in names) {
+            if (name == null) continue;
+            remove_callback(L, name);
+        }
+    }
+
+    private static function callback_handler(L:cpp.RawPointer<Lua_State>):Int {
+        if (callbacks_function != null)
+            return callbacks_function(L, cast(Lua.tostring(L, Lua.upvalueindex(1)), String));
+
+        try {
             final nargs:Int = Lua.gettop(L);
 
-			var args:Array<Dynamic> = [];
-			for (i in 0...nargs)
-				args[i] = Convert.fromLua(L, i + 1);
+            var args:Array<Dynamic> = [];
+            for (i in 0...nargs)
+                args[i] = Convert.fromLua(L, i + 1);
 
             Lua.pop(L, nargs);
+            
+            var ret:Dynamic = null;
+            // Prefer integer-id lookup (fast path)
+            var uvtype = Lua.type(L, Lua.upvalueindex(1));
+            if (uvtype == Lua.TNUMBER) {
+                var id:Int = Std.int(Lua.tointeger(L, Lua.upvalueindex(1)));
+                var fn = callbacksById.get(id);
+                if (fn != null) {
+                    ret = Reflect.callMethod(null, fn, args);
+                }
+            } else {
+                // Fallback to name-based lookup for legacy closures
+                final name:String = cast(Lua.tostring(L, Lua.upvalueindex(1)), String);
+                if (callbacks.exists(name)) {
+                    ret = Reflect.callMethod(null, callbacks.get(name), args);
+                }
+            }
 
-            final name:String = cast(Lua.tostring(L, Lua.upvalueindex(1)), String);
+            if (ret != null) {
+                        // If the callback returns an Array, treat it as multiple return values
+                        if (Std.isOfType(ret, Array)) {
+                            var arr:Array<Dynamic> = cast ret;
+                            var count:Int = 0;
+                            for (v in arr) {
+                                Convert.toLua(L, v);
+                                count++;
+                            }
+                            return count;
+                        }
+                Convert.toLua(L, ret);
+                return 1;
+            }
+        } catch (e:Dynamic) {
+            if (sendErrorsToLua) {
+                final errorMsg = 'CALLBACK ERROR! ${e.message != null ? e.message : e}';
+                Lua.pushstring(L, errorMsg);
+                Lua.error(L);
+                return 0;
+            }
+            trace(e);
+            throw(e);
+        }
 
-			if (callbacks.exists(name)) {
-				var ret:Dynamic = Reflect.callMethod(null, callbacks.get(name), args);
-
-				if (ret != null) {
-					Convert.toLua(L, ret);
-					return 1;
-				}
-			}
-		} catch (e:Dynamic) {
-			if (sendErrorsToLua) {
-				final errorMsg = 'CALLBACK ERROR! ${e.message != null ? e.message : e}';
-				Lua.pushstring(L, errorMsg);
-				Lua.error(L);
-				return 0;
-			}
-			trace(e);
-			throw(e);
-		}
-
-		return 0;
-	}
+        return 0;
+    }
 }

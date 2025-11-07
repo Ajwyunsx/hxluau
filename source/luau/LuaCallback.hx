@@ -23,23 +23,21 @@ class LuaCallback {
 			for (arg in args)
 				Convert.toLua(L, arg);
 			var status:Int = Lua.pcall(L, args.length, 0, 0);
-			if (status != Lua.OK) {
-				var err:String = cast(Lua.tostring(L, -1), String);
-				Lua.pop(L, 1);
-				if (err == null || err == "") {
-					switch (status) {
-					case Lua.ERRRUN:
-						err = "Runtime Error";
-					case Lua.ERRMEM:
-						err = "Memory Allocation Error";
-					case Lua.ERRERR:
-						err = "Critical Error";
-						default:
-							err = "Unknown Error";
-					}
-				}
-				Sys.println("Error on callback: " + err);
-			}
+            if (status != Lua.OK) {
+                var err:String = cast(Lua.tostring(L, -1), String);
+                Lua.pop(L, 1);
+                if (err == null || err == "") {
+                    if (status == Lua.ERRRUN)
+                        err = "Runtime Error";
+                    else if (status == Lua.ERRMEM)
+                        err = "Memory Allocation Error";
+                    else if (status == Lua.ERRERR)
+                        err = "Critical Error";
+                    else
+                        err = "Unknown Error";
+                }
+                Sys.println("Error on callback: " + err);
+            }
 		}
 	}
 

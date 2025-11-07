@@ -12,6 +12,7 @@ import hxluau.Types;
 @:buildXml('<include name="${haxelib:hxluau}/project/Build.xml" />')
 @:include('lua.h')
 @:include('luacode.h')
+@:include('luacodegen.h')
 @:unreflective
 extern class LuauVM
 {
@@ -63,4 +64,22 @@ extern class LuauVM
 	 */
 	@:native('luau_setgcthreshold')
 	static function setgcthreshold(limit:Int):Void;
+
+	/**
+	 * Returns 1 if Luau native code generator is supported on this platform, 0 otherwise.
+	 */
+	@:native('luau_codegen_supported')
+	static function codegen_supported():Int;
+
+	/**
+	 * Creates a code generator instance bound to the given state. Must check support first.
+	 */
+	@:native('luau_codegen_create')
+	static function codegen_create(L:cpp.RawPointer<Lua_State>):Void;
+
+	/**
+	 * Builds native code for target function (and inner functions) at stack index `idx`.
+	 */
+	@:native('luau_codegen_compile')
+	static function codegen_compile(L:cpp.RawPointer<Lua_State>, idx:Int):Void;
 }
