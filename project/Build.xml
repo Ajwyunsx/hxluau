@@ -45,11 +45,6 @@
 	<target id="haxe">
 		<flag value="-fstack-protector" if="mingw" />
 
-		<!-- Also enforce 64-bit on Windows at target level as a safeguard -->
-		<section if="windows">
-			<flag value="-D HXCPP_M64" unless="HXCPP_M64 HXCPP_ARM64" />
-		</section>
-
 		<section if="mingw">
 			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/x64/luau.lib" if="HXCPP_M64" />
 			<lib name="${haxelib:hxluau}/project/luau/lib/Windows/arm64/luau.lib" if="HXCPP_ARM64" />

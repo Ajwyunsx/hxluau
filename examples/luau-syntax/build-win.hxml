@@ -12,6 +12,9 @@
 # Add hxluau library
 -lib hxluau
 
+# Build for 64-bit MSVC toolchain
+-D HXCPP_M64
+
 # Copy script file to output directory
 -cmd copy script.lua bin\script.lua
 

@@ -24,6 +24,8 @@ jobs:
 
             - name: Setup MSVC Build Tools
               uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: x64
 
             - name: Verify or flag build (Windows x64)
               shell: cmd
@@ -163,7 +165,7 @@ jobs:
                   haxelib install hxcpp --quiet
                   haxelib dev hxluau .
                   cd examples/${{matrix.sample}}
-                  haxe build-win.hxml
+                  haxe -D HXCPP_M64 build-win.hxml
     Linux:
         runs-on: ubuntu-latest
         strategy:

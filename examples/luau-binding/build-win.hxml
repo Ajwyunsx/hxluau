@@ -1,6 +1,7 @@
 -cp ../../source
 -cp ./
 -D analyzer-optimize
+-D HXCPP_M64
 -lib hxluau
 -main Main
 -cpp bin
