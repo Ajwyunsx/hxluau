@@ -86,9 +86,9 @@ jobs:
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
             # macOS: choose architecture via CMAKE_OSX_ARCHITECTURES
             if [ "${{ matrix.arch }}" = "x64" ]; then
-              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
             else
-              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
             fi
           else
             # Linux: use Ninja; install cross toolchain if arm64
@@ -99,9 +99,10 @@ jobs:
                 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
                 -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
                 -DCMAKE_AR=/usr/bin/aarch64-linux-gnu-ar \
-                -DCMAKE_RANLIB=/usr/bin/aarch64-linux-gnu-ranlib
+                -DCMAKE_RANLIB=/usr/bin/aarch64-linux-gnu-ranlib \
+                -DLUAU_ENABLE_CODEGEN=ON
             else
-              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+              cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
             fi
           fi
 
@@ -113,8 +114,9 @@ jobs:
           find . -name 'libLuau.Compiler.a' -type f -print || true
           find . -name 'libLuau.Config.a' -type f -print || true
           find . -name 'libLuau.VM.a' -type f -print || true
+          find . -name 'libLuau.CodeGen.a' -type f -print || true
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
-            libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f) )
+            libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) )
             if [ -z "$libs" ]; then
               echo "No minimal libLuau.*.a found"; exit 1
             fi
@@ -134,6 +136,7 @@ jobs:
             find . -name 'libLuau.Compiler.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
             find . -name 'libLuau.Config.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
             find . -name 'libLuau.VM.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
+            find . -name 'libLuau.CodeGen.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
             echo "save" >> combine.mri
             echo "end" >> combine.mri
             $AR_BIN -M < combine.mri
@@ -182,17 +185,17 @@ jobs:
           REM Build with CMake using Ninja generator
           mkdir build
           cd build
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DLUAU_ENABLE_CODEGEN=ON
           cmake --build . --config MinSizeRel
 
           REM Combine minimal set of Luau libraries (Ast/Compiler/Config/VM)
           echo Listing candidate Luau.*.lib in current build dir:
-          dir /b Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib 2>nul
+          dir /b Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib 2>nul
 
           setlocal EnableDelayedExpansion
           set FILES=
           rem Prefer libs in current build dir (Ninja single-config)
-          for %%f in (Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib) do (
+          for %%f in (Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib) do (
             if exist "%%f" set FILES=!FILES! "%%f"
           )
 
@@ -209,6 +212,9 @@ jobs:
               echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
             )
             for /r %%f in (Luau.VM.lib) do (
+              echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+            )
+            for /r %%f in (Luau.CodeGen.lib) do (
               echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
             )
           )
@@ -386,15 +392,15 @@ jobs:
           cd build
 
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
           else
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
           fi
 
           cmake --build . --config MinSizeRel
 
-          # Combine MINIMAL Luau libraries (Ast/Compiler/Config/VM)
-          libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f) )
+          # Combine MINIMAL Luau libraries (Ast/Compiler/Config/VM/CodeGen)
+          libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) )
           if [ -z "$libs" ]; then
             echo "No minimal libLuau.*.a found"; exit 1
           fi

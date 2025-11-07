@@ -39,7 +39,7 @@ jobs:
           cd project\luau
           mkdir build
           cd build
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DLUAU_ENABLE_CODEGEN=ON
           cmake --build . --config MinSizeRel
 
           rem Collect only required Luau libs to minimize size
@@ -48,6 +48,7 @@ jobs:
           for /r %%f in (Luau.Compiler.lib) do set FILES=!FILES! "%%f"
           for /r %%f in (Luau.Config.lib) do set FILES=!FILES! "%%f"
           for /r %%f in (Luau.VM.lib) do set FILES=!FILES! "%%f"
+          for /r %%f in (Luau.CodeGen.lib) do set FILES=!FILES! "%%f"
 
           if "!FILES!"=="" (
             echo ERROR: Required Luau libs not found.
@@ -55,7 +56,7 @@ jobs:
             exit /b 1
           )
 
-          echo Merging into luau.lib: !FILES!
+          echo Merging into luau.lib (with CodeGen): !FILES!
           lib.exe /OUT:luau.lib !FILES!
           if errorlevel 1 exit /b %errorlevel%
 

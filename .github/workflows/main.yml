@@ -103,7 +103,7 @@ jobs:
                       cd project\luau
                       mkdir build
                       cd build
-                      cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+                      cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DLUAU_ENABLE_CODEGEN=ON
                       cmake --build . --config Release
                       set FILES=
                       for /r %%f in (Luau.*.lib) do set FILES=!FILES! "%%f"
@@ -249,7 +249,7 @@ jobs:
                   git clone https://github.com/luau-lang/luau.git project/luau
                   cd project/luau
                   mkdir -p build && cd build
-                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+                  cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLUAU_ENABLE_CODEGEN=ON
                   cmake --build . --config Release
                   echo "create libluau.a" > combine.mri
                   find . -name 'libLuau.*.a' -type f -print0 | xargs -0 -I{} echo "addlib {}" >> combine.mri
@@ -350,7 +350,7 @@ jobs:
                   git clone https://github.com/luau-lang/luau.git project/luau
                   cd project/luau
                   mkdir -p build && cd build
-                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -DLUAU_ENABLE_CODEGEN=ON
                   cmake --build . --config Release
                   libs=$(find . -name 'libLuau.*.a' -type f)
                   if [ -z "$libs" ]; then echo "No libLuau.*.a found"; exit 1; fi
@@ -409,7 +409,7 @@ jobs:
                   git clone https://github.com/luau-lang/luau.git project/luau
                   cd project/luau
                   mkdir -p build && cd build
-                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+                  cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 -DLUAU_ENABLE_CODEGEN=ON
                   cmake --build . --config Release
                   libs=$(find . -name 'libLuau.*.a' -type f)
                   if [ -z "$libs" ]; then echo "No libLuau.*.a found"; exit 1; fi
