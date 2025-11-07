@@ -562,4 +562,41 @@ extern class LuaL
 	 */
 	@:native("hxluau_LuaL_dofile_wrapper")
 	private static function hxluau_dofile(L:cpp.RawPointer<Lua_State>, filename:cpp.ConstCharStar):Int;
+
+	/**
+	 * Clears the internal Luau bytecode cache used for file loads.
+	 */
+	@:native("hxluau_bytecode_cache_clear")
+	static function bytecodeCacheClear():Void;
+
+	/**
+	 * Sets the capacity of the internal bytecode cache (default 32 entries).
+	 * @param cap New capacity (>0).
+	 */
+	@:native("hxluau_bytecode_cache_set_capacity")
+	static function bytecodeCacheSetCapacity(cap:Int):Void;
+
+	/**
+	 * Performs a VM-level soft reset: full GC collect and reset main thread.
+	 * Keeps the VM alive without reinitializing libraries/globals.
+	 */
+	@:native("hxluau_vm_soft_reset")
+	static function vmSoftReset(L:cpp.RawPointer<Lua_State>):Void;
+
+	/**
+	 * Enables or disables Luau native codegen for loaded chunks.
+	 * When enabled and supported on this platform, loaded functions are
+	 * compiled to native code for faster execution.
+	 */
+	@:native("hxluau_enable_codegen")
+	static function enableCodegen(enable:Bool):Void;
+
+	/**
+	 * Sets global compile options for Luau compiler.
+	 * @param optimizationLevel 0..2 (2 = highest performance)
+	 * @param debugLevel 0..2 (0 = no debug info)
+	 * @param typeInfoLevel 0..1 (1 = emit type info for all modules)
+	 */
+	@:native("hxluau_set_compile_options")
+	static function setCompileOptions(optimizationLevel:Int, debugLevel:Int, typeInfoLevel:Int):Void;
 }
