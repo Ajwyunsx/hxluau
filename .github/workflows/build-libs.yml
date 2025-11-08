@@ -61,8 +61,6 @@ jobs:
       - name: Setup MSVC (Windows)
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.msvc_arch }}
 
       - name: Clone Luau repository
         run: |
@@ -546,4 +544,5 @@ jobs:
             git commit -m "chore: update prebuilt luau libraries [skip ci]" -m "Co-authored-by: Ajwyunsx <Ajwyunsx@users.noreply.github.com>"
             git push origin HEAD:main
           fi
+
 
