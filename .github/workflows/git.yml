@@ -1,10 +1,64 @@
+name: Auto Clean Untracked Files
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  clean-and-checkout:
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 拉取所有分支
+          fetch-depth: 0
 
       - name: Fetch all branches
         run: git fetch --all
+
+      - name: Detect untracked files
+        id: detect
+        run: |
+          untracked=$(git ls-files --others --exclude-standard)
+          if [ -n "$untracked" ]; then
+            echo "has_untracked=true" >> $GITHUB_OUTPUT
+            echo "untracked_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$untracked" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_untracked=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show untracked files
+        if: steps.detect.outputs.has_untracked == 'true'
+        run: |
+          echo "Found untracked files:"
+          echo "${{ steps.detect.outputs.untracked_files }}"
+
+      - name: Clean untracked files (safe)
+        if: steps.detect.outputs.has_untracked == 'true'
+        run: |
+          git clean -n
+          git clean -f
+
+      - name: Update .gitignore (optional)
+        if: steps.detect.outputs.has_untracked == 'true'
+        run: |
+          echo "${{ steps.detect.outputs.untracked_files }}" | while read -r file; do
+            if [ -n "$file" ]; then
+              echo "$file" >> .gitignore
+            fi
+          done
+          if ! git diff --quiet .gitignore; then
+            git config --local user.email "github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+            git add .gitignore
+            git commit -m "Auto update .gitignore [skip ci]"
+            git push
+          fi
 
       - name: Check if target branch exists
         id: check_branch
@@ -18,3 +72,6 @@
       - name: Checkout target branch
         run: |
           git checkout ${{ steps.check_branch.outputs.target_branch }}
+
+      - name: Show final status
+        run: git status
