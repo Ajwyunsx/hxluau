@@ -1,0 +1,20 @@
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取所有分支
+
+      - name: Fetch all branches
+        run: git fetch --all
+
+      - name: Check if target branch exists
+        id: check_branch
+        run: |
+          if git rev-parse --verify origin/dev >/dev/null 2>&1; then
+            echo "target_branch=dev" >> $GITHUB_OUTPUT
+          else
+            echo "target_branch=main" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout target branch
+        run: |
+          git checkout ${{ steps.check_branch.outputs.target_branch }}
