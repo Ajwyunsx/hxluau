@@ -410,7 +410,8 @@ static void hxluau_call_hook(lua_State* L, lua_Debug* ar)
         return;
 
     // Push the current function onto the stack
-    if (lua_getinfo(L, "f", ar))
+    // Luau's lua_getinfo signature is (L, level, what, ar)
+    if (lua_getinfo(L, 0, "f", ar))
     {
         const void* funcptr = lua_topointer(L, -1);
         if (funcptr)
@@ -448,12 +449,16 @@ void hxluau_enable_autocompile(lua_State* L, int enable)
     g_autocompile_enabled = (enable != 0);
     if (g_autocompile_enabled)
     {
-        // Install hook for call events
-        lua_sethook(L, hxluau_call_hook, LUA_MASKCALL, 0);
+        // Install hook for call events by assigning the debugstep callback in Luau's callbacks
+        lua_Callbacks* cbs = lua_callbacks(L);
+        if (cbs)
+            cbs->debugstep = hxluau_call_hook;
     }
     else
     {
-        lua_sethook(L, NULL, 0, 0);
+        lua_Callbacks* cbs = lua_callbacks(L);
+        if (cbs)
+            cbs->debugstep = NULL;
     }
 }
 
