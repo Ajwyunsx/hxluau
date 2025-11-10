@@ -36,6 +36,10 @@ void hxluau_enable_codegen(int enable);
 // Configure global compile options used by luau_compile
 void hxluau_set_compile_options(int optimizationLevel, int debugLevel, int typeInfoLevel);
 
+// Autocompile (hot-counter) control
+void hxluau_enable_autocompile(lua_State* L, int enable);
+void hxluau_set_autocompile_threshold(int threshold);
+
 #ifdef __cplusplus
 }
 #endif

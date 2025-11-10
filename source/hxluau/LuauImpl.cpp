@@ -49,7 +49,7 @@ struct BytecodeCache
 
     static size_t& capacity()
     {
-        static size_t cap = 32; // default cache size
+    static size_t cap = 128; // increased default cache size for better hit rates
         return cap;
     }
 
@@ -154,8 +154,8 @@ void hxluau_bytecode_cache_set_capacity(int cap)
 // Global compile options for luau_compile
 // ------------------------------------
 static lua_CompileOptions g_compile_opts = {
-    /*optimizationLevel*/ 1,
-    /*debugLevel*/ 1,
+    /*optimizationLevel*/ 2, // prefer higher optimization by default
+    /*debugLevel*/ 0,        // reduce debug info for faster code
     /*typeInfoLevel*/ 0,
     /*coverageLevel*/ 0,
     /*vectorLib*/ nullptr,
@@ -387,5 +387,80 @@ void hxluau_vm_soft_reset(lua_State* L)
 // -----------------------------
 // Optional native codegen (AOT)
 // -----------------------------
-bool g_codegen_enabled = false;
+// Enable codegen by default to improve runtime speed on supported platforms (LuaJIT-like behavior)
+bool g_codegen_enabled = true;
 std::unordered_map<lua_State*, bool> g_codegen_created;
+
+// -----------------------------
+// Autocompile (hot-counter) support
+// -----------------------------
+static std::unordered_map<const void*, int> g_hot_counters;
+static int g_autocompile_threshold = 1000; // default threshold
+static bool g_autocompile_enabled = false;
+
+// Hook called on function calls; will push the function on the stack via lua_getinfo("f")
+static void hxluau_call_hook(lua_State* L, lua_Debug* ar)
+{
+    if (!g_autocompile_enabled)
+        return;
+
+    // Only attempt to autocompile if codegen is supported
+#ifdef HXLUAU_WITH_CODEGEN
+    if (!luau_codegen_supported())
+        return;
+
+    // Push the current function onto the stack
+    if (lua_getinfo(L, "f", ar))
+    {
+        const void* funcptr = lua_topointer(L, -1);
+        if (funcptr)
+        {
+            int& cnt = g_hot_counters[funcptr];
+            ++cnt;
+            if (cnt >= g_autocompile_threshold)
+            {
+                // Ensure codegen is created for main thread
+                lua_State* mainL = lua_mainthread(L);
+                auto it = g_codegen_created.find(mainL);
+                if (it == g_codegen_created.end() || !it->second)
+                {
+                    luau_codegen_create(mainL);
+                    g_codegen_created[mainL] = true;
+                }
+
+                // Compile the function at top of stack
+                luau_codegen_compile(L, -1);
+
+                // Mark compiled (prevent repeated compiles)
+                cnt = INT_MIN / 2;
+            }
+        }
+
+        // remove pushed function
+        lua_pop(L, 1);
+    }
+#endif
+}
+
+// Enable or disable the autocompile hook for a given state
+void hxluau_enable_autocompile(lua_State* L, int enable)
+{
+    g_autocompile_enabled = (enable != 0);
+    if (g_autocompile_enabled)
+    {
+        // Install hook for call events
+        lua_sethook(L, hxluau_call_hook, LUA_MASKCALL, 0);
+    }
+    else
+    {
+        lua_sethook(L, NULL, 0, 0);
+    }
+}
+
+// Set the hot-call threshold
+void hxluau_set_autocompile_threshold(int threshold)
+{
+    if (threshold <= 0)
+        threshold = 1;
+    g_autocompile_threshold = threshold;
+}

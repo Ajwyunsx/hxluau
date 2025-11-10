@@ -581,6 +581,18 @@ extern class LuaL
 	 * Keeps the VM alive without reinitializing libraries/globals.
 	 */
 	@:native("hxluau_vm_soft_reset")
+
+	/**
+	 * Enable or disable autocompile (hot function AOT compile) for a state.
+	 */
+	@:native('hxluau_enable_autocompile')
+	static function enable_autocompile(L:cpp.RawPointer<Lua_State>, enable:Int):Void;
+
+	/**
+	 * Set the hot-call threshold for autocompile.
+	 */
+	@:native('hxluau_set_autocompile_threshold')
+	static function set_autocompile_threshold(threshold:Int):Void;
 	static function vmSoftReset(L:cpp.RawPointer<Lua_State>):Void;
 
 	/**
