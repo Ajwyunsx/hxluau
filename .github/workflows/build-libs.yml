@@ -6,7 +6,7 @@ on:
       luau_branch:
         description: 'Luau branch/tag to build'
         required: false
-        default: 'master'
+        default: 'main'
         type: string
 
 # Grant write permissions to GITHUB_TOKEN so the workflow can push commits
@@ -14,8 +14,8 @@ permissions:
   contents: write
 
 env:
-  CMAKE_VERSION: '3.22.x'
-  NINJA_VERSION: '1.11.1'
+  CMAKE_VERSION: '3.28.x'  # Updated to newer version
+  NINJA_VERSION: '1.12.1'  # Updated to latest
   NDK_VERSION: '25.1.8937393'
   LUAU_REPO: 'https://github.com/luau-lang/luau.git'
 
@@ -25,12 +25,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, platform: Linux, arch: x64, lib_name: libluau.a, android_abi: '' }
-          - { os: ubuntu-latest, platform: Linux, arch: arm64, lib_name: libluau.a, android_abi: '' }
+          - { os: ubuntu-latest, platform: Linux, arch: x64, lib_name: libluau.a }
+          - { os: ubuntu-latest, platform: Linux, arch: arm64, lib_name: libluau.a }
           - { os: windows-latest, platform: Windows, arch: x64, lib_name: luau.lib, msvc_arch: x64 }
           - { os: windows-latest, platform: Windows, arch: arm64, lib_name: luau.lib, msvc_arch: amd64_arm64 }
-          - { os: macos-latest, platform: MacOS, arch: x64, lib_name: libluau.a, android_abi: '' }
-          - { os: macos-latest, platform: MacOS, arch: arm64, lib_name: libluau.a, android_abi: '' }
+          - { os: macos-latest, platform: MacOS, arch: x64, lib_name: libluau.a }
+          - { os: macos-latest, platform: MacOS, arch: arm64, lib_name: libluau.a }
 
     steps:
       - name: Checkout
@@ -40,15 +40,24 @@ jobs:
           lfs: false
 
       - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v1
+        uses: jwlawson/actions-setup-cmake@v2  # Updated to v2
         with:
           cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Setup Ninja (Unix)
         if: matrix.platform != 'Windows'
-        uses: ashutoshvarma/setup-ninja@v1
+        uses: ashutoshvarma/setup-ninja@v2  # Updated to v2
         with:
           version: ${{ env.NINJA_VERSION }}
+
+      - name: Verify Ninja installation
+        if: matrix.platform != 'Windows'
+        run: |
+          ninja --version
+          which ninja
+          echo "Ninja is available at: $(which ninja)"
+          echo "PATH=$PATH"
+        shell: bash
 
       - name: Setup MSVC (Windows)
         if: matrix.platform == 'Windows'
@@ -70,182 +79,19 @@ jobs:
           fi
         shell: bash
 
-      - name: Build Luau library (Unix)
-        if: matrix.platform != 'Windows'
+      - name: Build and package library
         env:
           ARCH: ${{ matrix.arch }}
           PLATFORM: ${{ matrix.platform }}
         run: |
           cd project/luau
-          ./.github/scripts/build_unix.sh
-        shell: bash
-
-      - name: Build Luau library (Windows)
-        if: matrix.platform == 'Windows'
-        run: |
-          cd project/luau
-          .github/scripts/build_windows.ps1
-        shell: pwsh
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: luau-libs
-          path: project/luau/built_lib/
-          retention-days: 1
-          if-no-files-found: error
-          # Enable merging multiple uploads to same artifact
-          merge-multiple: true
-
-  build-mobile-libs:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          # Android
-          - { os: ubuntu-latest, platform: Android, arch: arm64, android_abi: arm64-v8a, lib_name: libluau-arm64.a }
-          - { os: ubuntu-latest, platform: Android, arch: x64, android_abi: x86_64, lib_name: libluau-x86_64.a }
-          - { os: ubuntu-latest, platform: Android, arch: armv7a, android_abi: armeabi-v7a, lib_name: libluau-armv7a.a }
-          - { os: ubuntu-latest, platform: Android, arch: x86, android_abi: x86, lib_name: libluau-x86.a }
-          # iOS
-          - { os: macos-latest, platform: iOS, arch: arm64, sdk: iphoneos, lib_name: libluau_device.a }
-          - { os: macos-latest, platform: iOS, arch: x64, sdk: iphonesimulator, lib_name: libluau_sim.a }
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-
-      - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v1
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
-
-      - name: Setup Ninja (Android)
-        if: matrix.platform == 'Android'
-        uses: ashutoshvarma/setup-ninja@v1
-        with:
-          version: ${{ env.NINJA_VERSION }}
-
-      - name: Setup Android SDK/NDK
-        if: matrix.platform == 'Android'
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
-          ndk: ${{ env.NDK_VERSION }}
-
-      - name: Clone Luau repository
-        run: |
-          if [[ -d "project/luau/.git" ]]; then
-            cd project/luau
-            git fetch origin ${{ github.event.inputs.luau_branch || 'master' }} --depth 1
-            git reset --hard FETCH_HEAD
-          else
-            mkdir -p project
-            git clone --depth 1 --branch ${{ github.event.inputs.luau_branch || 'master' }} \
-              ${{ env.LUAU_REPO }} project/luau
-          fi
-        shell: bash
-
-      - name: Build mobile library
-        env:
-          ARCH: ${{ matrix.arch }}
-          PLATFORM: ${{ matrix.platform }}
-          ANDROID_ABI: ${{ matrix.android_abi }}
-          SDK: ${{ matrix.sdk }}
-        run: |
-          cd project/luau
-          ./.github/scripts/build_mobile.sh
+          ./.github/scripts/build_and_package.sh
         shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: luau-libs
-          path: project/luau/built_lib/
+          name: luau-libs-${{ matrix.platform }}-${{ matrix.arch }}
+          path: project/luau/built_lib/${{ matrix.lib_name }}
           retention-days: 1
           if-no-files-found: error
-          merge-multiple: true
-
-  combine-and-commit:
-    needs: [build-libs, build-mobile-libs]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          # Use GITHUB_TOKEN for push
-          persist-credentials: true
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: luau-libs
-          path: project/luau/lib/
-
-      - name: Verify and organize libraries
-        run: |
-          # Create expected directory structure
-          for dir in Linux/x64 Linux/arm64 Windows/x64 Windows/arm64 \
-                     MacOS/x64 MacOS/arm64 Android iOS; do
-            mkdir -p "project/luau/lib/$dir"
-          done
-
-          # Verify each library exists and move to final location
-          declare -A LIB_MAP=(
-            ["libluau-Linux-x64.a"]="Linux/x64/libluau.a"
-            ["libluau-Linux-arm64.a"]="Linux/arm64/libluau.a"
-            ["luau-Windows-x64.lib"]="Windows/x64/luau.lib"
-            ["luau-Windows-arm64.lib"]="Windows/arm64/luau.lib"
-            ["libluau-MacOS-x64.a"]="MacOS/x64/libluau.a"
-            ["libluau-MacOS-arm64.a"]="MacOS/arm64/libluau.a"
-            ["libluau-Android-arm64.a"]="Android/libluau-arm64.a"
-            ["libluau-Android-x86_64.a"]="Android/libluau-x86_64.a"
-            ["libluau-Android-armv7a.a"]="Android/libluau-armv7a.a"
-            ["libluau-Android-x86.a"]="Android/libluau-x86.a"
-            ["libluau-iOS-device.a"]="iOS/libluau_device.a"
-            ["libluau-iOS-sim.a"]="iOS/libluau_sim.a"
-          )
-
-          # Check and rename libraries
-          for src in "${!LIB_MAP[@]}"; do
-            dst="${LIB_MAP[$src]}"
-            if [[ -f "project/luau/lib/$src" ]]; then
-              mv "project/luau/lib/$src" "project/luau/lib/$dst"
-              echo "✓ Moved $src → $dst"
-            else
-              echo "✗ Missing $src (expected at project/luau/lib/$src)"
-              exit 1
-            fi
-          done
-
-          # Cleanup any remaining files
-          find project/luau/lib -maxdepth 1 -type f -delete
-
-          # Validate libraries
-          find project/luau/lib -name "*.a" -o -name "*.lib" | while read lib; do
-            if [[ "$lib" == *.a ]]; then
-              ar -t "$lib" > /dev/null || { echo "ERROR: Invalid archive $lib"; exit 1; }
-            else
-              lib.exe /LIST "$lib" > /dev/null 2>&1 || { echo "ERROR: Invalid lib $lib"; exit 1; }
-            fi
-          done
-
-          echo "Library verification complete"
-        shell: bash
-
-      - name: Commit and push updated libraries
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          git add -f project/luau/lib/
-          if git diff --cached --quiet; then
-            echo "No changes to commit; skipping push."
-          else
-            COMMIT_MSG="chore: update prebuilt luau libraries $(date -u +%Y%m%d)"
-            git commit -m "$COMMIT_MSG" -m "Built from ${{ github.event.inputs.luau_branch || 'master' }}"
-            git push origin HEAD:main
-          fi
-        shell: bash
