@@ -443,22 +443,61 @@ static void hxluau_call_hook(lua_State* L, lua_Debug* ar)
 #endif
 }
 
+// Lower-overhead interrupt hook: called at VM safepoints (loop back edges, call/ret, gc)
+static void hxluau_interrupt_hook(lua_State* L, int gc)
+{
+    if (!g_autocompile_enabled)
+        return;
+
+#ifdef HXLUAU_WITH_CODEGEN
+    if (!luau_codegen_supported())
+        return;
+
+    lua_Debug ar;
+    // Use level 0 to get current function on top of the stack
+    if (lua_getinfo(L, 0, "f", &ar))
+    {
+        const void* funcptr = lua_topointer(L, -1);
+        if (funcptr)
+        {
+            int& cnt = g_hot_counters[funcptr];
+            ++cnt;
+            if (cnt >= g_autocompile_threshold)
+            {
+                lua_State* mainL = lua_mainthread(L);
+                auto it = g_codegen_created.find(mainL);
+                if (it == g_codegen_created.end() || !it->second)
+                {
+                    luau_codegen_create(mainL);
+                    g_codegen_created[mainL] = true;
+                }
+                luau_codegen_compile(L, -1);
+                cnt = INT_MIN / 2;
+            }
+        }
+
+        // remove pushed function
+        lua_pop(L, 1);
+    }
+#endif
+}
+
 // Enable or disable the autocompile hook for a given state
 void hxluau_enable_autocompile(lua_State* L, int enable)
 {
     g_autocompile_enabled = (enable != 0);
     if (g_autocompile_enabled)
     {
-        // Install hook for call events by assigning the debugstep callback in Luau's callbacks
+        // Install lower-overhead hook via Luau's interrupt callback (safepoints)
         lua_Callbacks* cbs = lua_callbacks(L);
         if (cbs)
-            cbs->debugstep = hxluau_call_hook;
+            cbs->interrupt = hxluau_interrupt_hook;
     }
     else
     {
         lua_Callbacks* cbs = lua_callbacks(L);
         if (cbs)
-            cbs->debugstep = NULL;
+            cbs->interrupt = NULL;
     }
 }
 
