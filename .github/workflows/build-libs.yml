@@ -469,217 +469,188 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+
   combine-libs:
-    needs: [build-libs, build-android-libs, build-ios-libs]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-          persist-credentials: true
-
-      # Using GITHUB_TOKEN via checkout's persisted credentials for HTTPS push
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Create lib directories
-        run: |
-          mkdir -p project/luau/lib/Linux/x64
-          mkdir -p project/luau/lib/Linux/arm64
-          mkdir -p project/luau/lib/Windows/x64
-          mkdir -p project/luau/lib/Windows/arm64
-          mkdir -p project/luau/lib/MacOS/x64
-          mkdir -p project/luau/lib/MacOS/arm64
-          mkdir -p project/luau/lib/Android
-          mkdir -p project/luau/lib/iOS
-
-      - name: Extract artifact archives (tar.gz / zip) into their artifact folders
-        shell: bash
-        run: |
-          shopt -s nullglob
-          for d in luau-libs-* ; do
-            if [ -d "$d" ]; then
-              echo "Processing artifact folder: $d"
-              for a in "$d"/*; do
-                case "$a" in
-                  *.tar.gz) echo "Extracting $a"; tar -xzf "$a" -C "$d" ;;
-                  *.zip) echo "Unzipping $a"; unzip -q "$a" -d "$d" ;;
-                  *) echo "Skipping non-archive file $a" ;;
-                esac
-              done
-              echo "Contents of $d after extraction:"
-              ls -la "$d" || true
-            fi
-          done
-
-      - name: Move extracted files to correct locations
-        run: |
-          # Linux x64
-          if [ -d "luau-libs-Linux-x64" ] && [ -f "luau-libs-Linux-x64/libluau.a" ]; then
-            mv luau-libs-Linux-x64/libluau.a project/luau/lib/Linux/x64/libluau.a
-            echo "Moved Linux x64 library"
-          else
-            echo "No Linux x64 library found"
-          fi
-          # Linux arm64
-          if [ -d "luau-libs-Linux-arm64" ] && [ -f "luau-libs-Linux-arm64/libluau.a" ]; then
-            mv luau-libs-Linux-arm64/libluau.a project/luau/lib/Linux/arm64/libluau.a
-            echo "Moved Linux arm64 library"
-          else
-            echo "No Linux arm64 library found"
-          fi
-
-          # Windows x64
-          if [ -d "luau-libs-Windows-x64" ] && [ -f "luau-libs-Windows-x64/luau.lib" ]; then
-            mv luau-libs-Windows-x64/luau.lib project/luau/lib/Windows/x64/luau.lib
-            echo "Moved Windows x64 library"
-          else
-            echo "No Windows x64 library found"
-          fi
-          # Windows arm64
-          if [ -d "luau-libs-Windows-arm64" ] && [ -f "luau-libs-Windows-arm64/luau.lib" ]; then
-            mv luau-libs-Windows-arm64/luau.lib project/luau/lib/Windows/arm64/luau.lib
-            echo "Moved Windows arm64 library"
-          else
-            echo "No Windows arm64 library found"
-          fi
-
-          # MacOS x64
-          if [ -d "luau-libs-MacOS-x64" ] && [ -f "luau-libs-MacOS-x64/libluau.a" ]; then
-            mv luau-libs-MacOS-x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
-            echo "Moved MacOS x64 library"
-          else
-            echo "No MacOS x64 library found"
-          fi
-          # MacOS arm64
-          if [ -d "luau-libs-MacOS-arm64" ] && [ -f "luau-libs-MacOS-arm64/libluau.a" ]; then
-            mv luau-libs-MacOS-arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
-            echo "Moved MacOS arm64 library"
-          else
-            echo "No MacOS arm64 library found"
-          fi
-
-          # Android arm64/x64
-          if [ -d "luau-libs-Android-arm64" ] && [ -f "luau-libs-Android-arm64/libluau-arm64.a" ]; then
-            mv luau-libs-Android-arm64/libluau-arm64.a project/luau/lib/Android/libluau-arm64.a
-            echo "Moved Android arm64 library"
-          else
-            echo "No Android arm64 library found"
-          fi
-          if [ -d "luau-libs-Android-x64" ] && [ -f "luau-libs-Android-x64/libluau-x86_64.a" ]; then
-            mv luau-libs-Android-x64/libluau-x86_64.a project/luau/lib/Android/libluau-x86_64.a
-            echo "Moved Android x64 library"
-          else
-            echo "No Android x64 library found"
-          fi
-          # Android armv7a/x86 (32-bit)
-          if [ -d "luau-libs-Android-armv7a" ] && [ -f "luau-libs-Android-armv7a/libluau-armv7a.a" ]; then
-            mv luau-libs-Android-armv7a/libluau-armv7a.a project/luau/lib/Android/libluau-armv7a.a
-            echo "Moved Android armv7a library"
-          else
-            echo "No Android armv7a library found"
-          fi
-          if [ -d "luau-libs-Android-x86" ] && [ -f "luau-libs-Android-x86/libluau-x86.a" ]; then
-            mv luau-libs-Android-x86/libluau-x86.a project/luau/lib/Android/libluau-x86.a
-            echo "Moved Android x86 library"
-          else
-            echo "No Android x86 library found"
-          fi
-
-          # iOS arm64/x64
-          if [ -d "luau-libs-iOS-arm64" ] && [ -f "luau-libs-iOS-arm64/libluau_device.a" ]; then
-            mv luau-libs-iOS-arm64/libluau_device.a project/luau/lib/iOS/libluau_device.a
-            echo "Moved iOS device (arm64) library"
-          else
-            echo "No iOS arm64 library found"
-          fi
-          if [ -d "luau-libs-iOS-x64" ] && [ -f "luau-libs-iOS-x64/libluau_sim.a" ]; then
-            mv luau-libs-iOS-x64/libluau_sim.a project/luau/lib/iOS/libluau_sim.a
-            echo "Moved iOS simulator (x64) library"
-          else
-            echo "No iOS x64 library found"
-          fi
-
-      - name: Create GitHub release and upload libraries (supports large files)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          REPO="${{ github.repository }}"
-          TAG="prebuilt-luau-${{ github.run_id }}"
-          BODY="Prebuilt Luau libraries for run ${{ github.run_id }} (workflow ${{ github.workflow }})"
-          echo "Creating release $TAG in $REPO"
-
-          # Ensure jq is available (used to construct/parse JSON and to url-encode asset names)
-          if ! command -v jq >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y jq
-          fi
-
-          # Create a release via the GitHub API (will create the tag if it doesn't exist)
-          create_resp=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPO/releases -d "$(jq -n --arg tag "$TAG" --arg name "$TAG" --arg body "$BODY" '{ tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false }')")
-          upload_url=$(echo "$create_resp" | jq -r .upload_url | sed -e "s/{?name,label}//")
-          release_id=$(echo "$create_resp" | jq -r .id)
-
-          if [ -z "$upload_url" ] || [ "$upload_url" = "null" ]; then
-            echo "Failed to create release. Response:"
-            echo "$create_resp"
-            exit 1
-          fi
-          echo "Release upload URL: $upload_url (release id: $release_id)"
-
-          # Upload every file under project/luau/lib as a release asset (handles large files)
-          shopt -s globstar nullglob
-          files=(project/luau/lib/**/*)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No files found under project/luau/lib to upload. Exiting."
-            exit 1
-          fi
-
-          for f in "${files[@]}"; do
-            if [ -f "$f" ]; then
-              # Create a unique asset name based on path under project/luau/lib, e.g. Linux-x64-libluau.a
-              rel="${f#project/luau/lib/}"
-              asset_name="${rel//\//-}"   # replace slashes with dashes so names are unique and human-readable
-              echo "Preparing upload: $f -> asset name: $asset_name"
-
-              # If an asset with the same name already exists in the release, delete it first.
-              existing_id=$(curl -s -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/releases/$release_id/assets" | jq -r --arg name "$asset_name" '.[] | select(.name == $name) | .id' || true)
-              if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
-                echo "Existing asset with same name found (id=$existing_id). Deleting before upload."
-                curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/releases/assets/$existing_id" || true
-                echo "Deleted existing asset id $existing_id."
+      needs: [build-libs, build-android-libs, build-ios-libs]
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            lfs: false
+            persist-credentials: true
+    
+        - name: Download all artifacts
+          uses: actions/download-artifact@v4
+    
+        - name: Create lib directories
+          run: |
+            mkdir -p project/luau/lib/Linux/x64
+            mkdir -p project/luau/lib/Linux/arm64
+            mkdir -p project/luau/lib/Windows/x64
+            mkdir -p project/luau/lib/Windows/arm64
+            mkdir -p project/luau/lib/MacOS/x64
+            mkdir -p project/luau/lib/MacOS/arm64
+            mkdir -p project/luau/lib/Android
+            mkdir -p project/luau/lib/iOS
+    
+        - name: Extract artifact archives (tar.gz / zip) into their artifact folders
+          shell: bash
+          run: |
+            shopt -s nullglob
+            for d in luau-libs-* ; do
+              if [ -d "$d" ]; then
+                echo "Processing artifact folder: $d"
+                for a in "$d"/*; do
+                  case "$a" in
+                    *.tar.gz) echo "Extracting $a"; tar -xzf "$a" -C "$d" ;;
+                    *.zip) echo "Unzipping $a"; unzip -q "$a" -d "$d" ;;
+                    *) echo "Skipping non-archive file $a" ;;
+                  esac
+                done
+                echo "Contents of $d after extraction:"
+                ls -la "$d" || true
               fi
-
-              # URL-encode the asset name for the upload URL
-              encoded_name=$(jq -rn --arg n "$asset_name" '$n|@uri')
-
-              # Retry upload with exponential backoff
-              max_attempts=5
-              attempt=0
-              success=0
-              while [ $attempt -lt $max_attempts ]; do
-                attempt=$((attempt+1))
-                echo "Uploading $f as $asset_name (attempt $attempt/$max_attempts)..."
-                http_status=$(curl -s -w "%{http_code}" -o /tmp/upload_resp -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$f" "$upload_url?name=$encoded_name" || true)
-                if [ "$http_status" = "201" ]; then
-                  echo "Upload succeeded for $asset_name."
-                  success=1
-                  break
-                else
-                  echo "Upload attempt $attempt failed with HTTP $http_status. Response:"
-                  sed -n '1,200p' /tmp/upload_resp || true
-                  sleep $(( attempt * 2 ))
-                fi
-              done
-
-              if [ $success -ne 1 ]; then
-                echo "Upload failed for $f after $max_attempts attempts. Aborting."
-                exit 1
-              fi
+            done
+    
+        - name: Move extracted files to correct locations
+          run: |
+            # Linux x64
+            if [ -d "luau-libs-Linux-x64" ] && [ -f "luau-libs-Linux-x64/libluau.a" ]; then
+              mv luau-libs-Linux-x64/libluau.a project/luau/lib/Linux/x64/libluau.a
+              echo "Moved Linux x64 library"
+            else
+              echo "No Linux x64 library found"
             fi
-          done
-
-          echo "All assets uploaded to release $TAG."
+            # Linux arm64
+            if [ -d "luau-libs-Linux-arm64" ] && [ -f "luau-libs-Linux-arm64/libluau.a" ]; then
+              mv luau-libs-Linux-arm64/libluau.a project/luau/lib/Linux/arm64/libluau.a
+              echo "Moved Linux arm64 library"
+            else
+              echo "No Linux arm64 library found"
+            fi
+    
+            # Windows x64
+            if [ -d "luau-libs-Windows-x64" ] && [ -f "luau-libs-Windows-x64/luau.lib" ]; then
+              mv luau-libs-Windows-x64/luau.lib project/luau/lib/Windows/x64/luau.lib
+              echo "Moved Windows x64 library"
+            else
+              echo "No Windows x64 library found"
+            fi
+            # Windows arm64
+            if [ -d "luau-libs-Windows-arm64" ] && [ -f "luau-libs-Windows-arm64/luau.lib" ]; then
+              mv luau-libs-Windows-arm64/luau.lib project/luau/lib/Windows/arm64/luau.lib
+              echo "Moved Windows arm64 library"
+            else
+              echo "No Windows arm64 library found"
+            fi
+    
+            # MacOS x64
+            if [ -d "luau-libs-MacOS-x64" ] && [ -f "luau-libs-MacOS-x64/libluau.a" ]; then
+              mv luau-libs-MacOS-x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
+              echo "Moved MacOS x64 library"
+            else
+              echo "No MacOS x64 library found"
+            fi
+            # MacOS arm64
+            if [ -d "luau-libs-MacOS-arm64" ] && [ -f "luau-libs-MacOS-arm64/libluau.a" ]; then
+              mv luau-libs-MacOS-arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
+              echo "Moved MacOS arm64 library"
+            else
+              echo "No MacOS arm64 library found"
+            fi
+    
+            # Android arm64/x64
+            if [ -d "luau-libs-Android-arm64" ] && [ -f "luau-libs-Android-arm64/libluau-arm64.a" ]; then
+              mv luau-libs-Android-arm64/libluau-arm64.a project/luau/lib/Android/libluau-arm64.a
+              echo "Moved Android arm64 library"
+            else
+              echo "No Android arm64 library found"
+            fi
+            if [ -d "luau-libs-Android-x64" ] && [ -f "luau-libs-Android-x64/libluau-x86_64.a" ]; then
+              mv luau-libs-Android-x64/libluau-x86_64.a project/luau/lib/Android/libluau-x86_64.a
+              echo "Moved Android x64 library"
+            else
+              echo "No Android x64 library found"
+            fi
+            # Android armv7a/x86 (32-bit)
+            if [ -d "luau-libs-Android-armv7a" ] && [ -f "luau-libs-Android-armv7a/libluau-armv7a.a" ]; then
+              mv luau-libs-Android-armv7a/libluau-armv7a.a project/luau/lib/Android/libluau-armv7a.a
+              echo "Moved Android armv7a library"
+            else
+              echo "No Android armv7a library found"
+            fi
+            if [ -d "luau-libs-Android-x86" ] && [ -f "luau-libs-Android-x86/libluau-x86.a" ]; then
+              mv luau-libs-Android-x86/libluau-x86.a project/luau/lib/Android/libluau-x86.a
+              echo "Moved Android x86 library"
+            else
+              echo "No Android x86 library found"
+            fi
+    
+            # iOS arm64/x64
+            if [ -d "luau-libs-iOS-arm64" ] && [ -f "luau-libs-iOS-arm64/libluau_device.a" ]; then
+              mv luau-libs-iOS-arm64/libluau_device.a project/luau/lib/iOS/libluau_device.a
+              echo "Moved iOS device (arm64) library"
+            else
+              echo "No iOS arm64 library found"
+            fi
+            if [ -d "luau-libs-iOS-x64" ] && [ -f "luau-libs-iOS-x64/libluau_sim.a" ]; then
+              mv luau-libs-iOS-x64/libluau_sim.a project/luau/lib/iOS/libluau_sim.a
+              echo "Moved iOS simulator (x64) library"
+            else
+              echo "No iOS x64 library found"
+            fi
+    
+        - name: Upload libraries to GitHub Release using gh (reliable for large files)
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          shell: bash
+          run: |
+            set -euo pipefail
+    
+            REPO="${{ github.repository }}"
+            # Make a unique tag that reflects current time to ensure release date is "now"
+            TAG="prebuilt-luau-${{ github.run_id }}-$(date -u +%Y%m%dT%H%M%SZ)"
+            BODY="Prebuilt Luau libraries for run ${{ github.run_id }} (workflow ${{ github.workflow }}) uploaded at $(date -u +%Y-%m-%dT%H:%M:%SZ UTC)"
+            echo "Creating release $TAG in $REPO"
+    
+            # Install gh CLI (on ubuntu-latest); gh is needed for robust asset uploads and clobber support
+            if ! command -v gh >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y gh
+            fi
+    
+            # Authenticate gh with GITHUB_TOKEN
+            echo "${GITHUB_TOKEN}" | gh auth login --with-token
+    
+            # Create release (if a release with this tag somehow already exists, delete and recreate to ensure "now" timestamp)
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Release $TAG already exists, deleting to ensure fresh timestamp."
+              gh release delete "$TAG" --yes || true
+            fi
+    
+            gh release create "$TAG" --title "$TAG" --notes "$BODY" --target HEAD || {
+              echo "gh release create failed"; exit 1;
+            }
+    
+            # Upload each file under project/luau/lib, naming assets by path to avoid collisions
+            shopt -s globstar nullglob
+            files=(project/luau/lib/**/*)
+            if [ ${#files[@]} -eq 0 ]; then
+              echo "No files found under project/luau/lib to upload. Exiting."
+              exit 1
+            fi
+    
+            for f in "${files[@]}"; do
+              if [ -f "$f" ]; then
+                rel="${f#project/luau/lib/}"
+                asset_name="${rel//\//-}"
+                echo "Uploading $f as release asset: $asset_name"
+                # gh release upload supports --clobber to replace same-name assets
+                gh release upload "$TAG" "$f" --clobber --name "$asset_name" || {
+                  echo "gh upload failed for $f"; exit 1;
+                }
+              fi
+            done
+    
+            echo "All assets uploaded to release $TAG."
