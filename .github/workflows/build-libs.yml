@@ -122,7 +122,7 @@ jobs:
           find . -name 'libLuau.CodeGen.a' -type f -print || true
 
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
-            libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) )
+            libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) | tr '\n' ' ' )
             if [ -z "$libs" ]; then
               echo "No minimal libLuau.*.a found"; exit 1
             fi
@@ -429,15 +429,15 @@ jobs:
           cd build
 
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
           else
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
           fi
 
           cmake --build . --config MinSizeRel
 
           # Combine MINIMAL Luau libraries (Ast/Compiler/Config/VM/CodeGen)
-          libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) )
+          libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) | tr '\n' ' ' )
           if [ -z "$libs" ]; then
             echo "No minimal libLuau.*.a found"; exit 1
           fi
@@ -600,16 +600,47 @@ jobs:
             echo "No iOS x64 library found"
           fi
 
-      - name: Commit and push updated libraries
-        shell: bash
+      - name: Create GitHub release and upload libraries (supports large files)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f project/luau/lib/
-          if git diff --cached --quiet; then
-            echo "No changes to commit; skipping push."
-          else
-            git commit -m "chore: update prebuilt luau libraries [skip ci]" -m "Co-authored-by: Ajwyunsx <Ajwyunsx@users.noreply.github.com>"
-            git push origin HEAD:main
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          TAG="prebuilt-luau-${{ github.run_id }}"
+          BODY="Prebuilt Luau libraries for run ${{ github.run_id }} (workflow ${{ github.workflow }})"
+          echo "Creating release $TAG in $REPO"
+
+          # Ensure jq is available (used to construct/parse JSON)
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y jq
           fi
+
+          # Create a release via the GitHub API (will create the tag if it doesn't exist)
+          create_resp=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPO/releases -d "$(jq -n --arg tag "$TAG" --arg name "$TAG" --arg body "$BODY" '{ tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false }')")
+          upload_url=$(echo "$create_resp" | jq -r .upload_url | sed -e "s/{?name,label}//")
+
+          if [ -z "$upload_url" ] || [ "$upload_url" = "null" ]; then
+            echo "Failed to create release. Response:"
+            echo "$create_resp"
+            exit 1
+          fi
+          echo "Release upload URL: $upload_url"
+
+          # Upload every file under project/luau/lib as a release asset (handles large files)
+          shopt -s globstar nullglob
+          files=(project/luau/lib/**/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No files found under project/luau/lib to upload. Exiting."
+            exit 1
+          fi
+
+          for f in "${files[@]}"; do
+            if [ -f "$f" ]; then
+              name=$(basename "$f")
+              echo "Uploading $f as $name ..."
+              curl --fail -S -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$f" "$upload_url?name=$name" || { echo "Upload failed for $f"; exit 1; }
+            fi
+          done
+
+          echo "All assets uploaded to release $TAG."
