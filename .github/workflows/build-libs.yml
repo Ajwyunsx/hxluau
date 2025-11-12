@@ -575,7 +575,7 @@ jobs:
           fi
 
           # Create a dedicated branch for this run (so main stays clean). You can change to main if desired.
-          BRANCH="prebuilt-luau/${{ github.run_id }}"
+          BRANCH="main/${{ github.run_id }}"
           git checkout -b "$BRANCH"
 
           git commit -m "chore: update prebuilt luau libraries [skip ci]" || true
@@ -592,3 +592,4 @@ jobs:
           # set if: true or remove the "if: false" condition.
           # Uses gh CLI (requires gh auth) or GitHub API to create PR programmatically.
           echo "Disabled by default. Enable if you want automatic PR creation."
+
