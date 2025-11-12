@@ -579,7 +579,7 @@ jobs:
           fi
 
           # Create a dedicated branch for this run
-          BRANCH="prebuilt-luau/${{ github.run_id }}"
+          BRANCH="main"
 
           # create the commit with author set to you and include co-author for the bot
           COMMIT_MSG="chore: update prebuilt luau libraries [skip ci]
@@ -606,3 +606,4 @@ jobs:
           # set if: true or remove the "if: false" condition.
           # Uses gh CLI (requires gh auth) or GitHub API to create PR programmatically.
           echo "Disabled by default. Enable if you want automatic PR creation."
+
