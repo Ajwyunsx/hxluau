@@ -1,15 +1,8 @@
-# Optimized: compress built libraries into a single archive per job (tar.gz on Linux/macOS/Android/iOS, .zip on Windows)
-# and upload that single archive as the artifact (smaller, fewer files, more robust).
-# combine-libs updated to extract archives before moving files.
-# retention-days added to uploads.
-# Other upload robustness improvements: explicit archive existence checks and clearer debug output.
-#
-# Trigger: manual workflow_dispatch
+
 name: Build Luau Libraries
 
 on: workflow_dispatch
 
-# Grant write permissions to GITHUB_TOKEN so the workflow can push commits
 permissions:
   contents: write
 
@@ -71,33 +64,24 @@ jobs:
 
       - name: Clone Luau repository
         run: |
-          # Remove existing incomplete Luau source
           rm -rf project/luau || true
-
-          # Clone official Luau repository
           git clone https://github.com/luau-lang/luau.git project/luau
         shell: bash
 
       - name: Build Luau library (Linux/macOS)
         if: matrix.platform == 'Linux' || matrix.platform == 'MacOS'
         run: |
-          # Navigate to Luau source directory
           cd project/luau
-
-          # Build with CMake for the specific platform/arch
           mkdir -p build
           cd build
 
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
-            # macOS: choose architecture via CMAKE_OSX_ARCHITECTURES
-            # Add CoreFoundation framework to linker flags to resolve CFBundle* symbols on Apple platforms.
             if [ "${{ matrix.arch }}" = "x64" ]; then
               cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
             else
               cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
             fi
           else
-            # Linux: use Ninja; install cross toolchain if arm64
             if [ "${{ matrix.arch }}" = "arm64" ]; then
               sudo apt-get update
               sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
@@ -114,7 +98,6 @@ jobs:
 
           cmake --build . --config MinSizeRel
 
-          # Combine MINIMAL static archives into a single static library (Ast/Compiler/Config/VM/CodeGen)
           echo "Listing minimal libLuau.*.a recursively:"
           find . -name 'libLuau.Ast.a' -type f -print || true
           find . -name 'libLuau.Compiler.a' -type f -print || true
@@ -130,7 +113,6 @@ jobs:
             libtool -static -o libluau.a $libs
             ranlib libluau.a
           else
-            # Choose appropriate ar/ranlib for arch
             if [ "${{ matrix.arch }}" = "arm64" ]; then
               AR_BIN=aarch64-linux-gnu-ar
               RANLIB_BIN=aarch64-linux-gnu-ranlib
@@ -150,11 +132,9 @@ jobs:
             $RANLIB_BIN libluau.a
           fi
 
-          # Copy to built_lib
           mkdir -p ../built_lib
           cp libluau.a ../built_lib/libluau.a || true
 
-          # Archive built_lib to a single tar.gz for upload
           mkdir -p ../archives
           if [ -d ../built_lib ] && [ "$(ls -A ../built_lib || true)" ]; then
             tar -C ../built_lib -czf ../archives/luau-libs-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz .
@@ -175,42 +155,28 @@ jobs:
             ls -la
             exit 1
           fi
-          # Basic validation: ar can list members
           ar -t libluau.a > /dev/null || { echo "ERROR: 'ar' failed to read libluau.a"; exit 1; }
-          # Optional: print file type for debugging
           command -v file >/dev/null 2>&1 && file -b libluau.a || true
         shell: bash
-        
+
       - name: Build Luau library (Windows)
         if: matrix.platform == 'Windows'
         run: |
-            REM Remove existing incomplete Luau source
             rmdir /s /q project\luau 2>nul || exit /b 0
-        
-            REM Clone official Luau repository
             git clone https://github.com/luau-lang/luau.git project\luau
-        
-            REM Navigate to Luau source directory
             cd project\luau
-        
-            REM Build with CMake using Ninja generator
             mkdir build
             cd build
             cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DLUAU_ENABLE_CODEGEN=ON
             cmake --build . --config MinSizeRel
-        
-            REM Combine minimal set of Luau libraries (Ast/Compiler/Config/VM/CodeGen)
             echo Listing candidate Luau.*.lib in current build dir:
             dir /b Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib 2>nul
-        
+
             setlocal EnableDelayedExpansion
             set FILES=
-            rem Prefer libs in current build dir (Ninja single-config)
             for %%f in (Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib) do (
               if exist "%%f" set FILES=!FILES! "%%f"
             )
-        
-            rem Fallback: recursive search, excluding CMakeFiles (to avoid bogus paths)
             if "!FILES!"=="" (
               echo No libs found in current dir; searching recursively...
               for /r %%f in (Luau.Ast.lib) do (
@@ -237,27 +203,21 @@ jobs:
             echo !FILES!
             lib.exe /OUT:luau.lib !FILES!
             if errorlevel 1 exit /b %errorlevel%
-        
-            REM Copy to built_lib
+
             mkdir ..\built_lib 2>nul || exit /b 0
             copy /Y luau.lib ..\built_lib\luau.lib
-        
-            REM Debug: Check built_lib contents
+
             echo Checking built_lib contents:
             dir ..\built_lib
-        
-            REM Create archives directory if missing (use relative path from build\ => ..\archives)
+
             powershell -Command "New-Item -ItemType Directory -Path '..\\archives' -Force"
-        
-            REM Archive built_lib into a single zip for upload (use ..\built_lib and ..\archives)
             powershell -Command ^
               "if ((Test-Path '..\\built_lib') -and (Get-ChildItem '..\\built_lib' -File)) {" ^
               "  Compress-Archive -Path '..\\built_lib\\*' -DestinationPath '..\\archives\\luau-libs-${{ matrix.platform }}-${{ matrix.arch }}.zip' -Force" ^
               "} else {" ^
               "  Write-Error 'built_lib missing or empty'; exit 1" ^
               "}"
-        
-            REM Debug
+
             echo Files in archives directory:
             dir ..\archives\
         shell: cmd
@@ -273,13 +233,11 @@ jobs:
             dir
             exit /b 1
           )
-          rem Authoritative validation: lib.exe can list members
           lib.exe /NOLOGO /LIST "luau.lib" >nul 2>&1
           if errorlevel 1 (
             echo ERROR: lib.exe failed to read luau.lib; invalid or corrupt.
             exit /b 1
           )
-          rem Optional: dumpbin headers if available
           where dumpbin >nul 2>&1 && dumpbin /headers "luau.lib" >nul 2>&1
 
       - name: Upload built libraries (single archive)
@@ -343,7 +301,6 @@ jobs:
           mkdir -p build
           cd build
 
-          # Resolve NDK path variable name
           if [ -n "$ANDROID_NDK_ROOT" ]; then NDK="$ANDROID_NDK_ROOT"; else NDK="$ANDROID_NDK_HOME"; fi
 
           cmake .. -G "Ninja" \
@@ -356,7 +313,6 @@ jobs:
 
           cmake --build . --config MinSizeRel
 
-          # Combine MINIMAL Luau libraries into one output per ABI (Ast/Compiler/Config/VM)
           echo "Listing minimal libLuau.*.a recursively:"
           find . -name 'libLuau.Ast.a' -type f -print || true
           find . -name 'libLuau.Compiler.a' -type f -print || true
@@ -376,7 +332,6 @@ jobs:
           cp "${{ matrix.lib_name }}" ../built_lib/ || true
           ls -la ../built_lib/
 
-          # Archive for upload
           mkdir -p ../archives
           if [ -d ../built_lib ] && [ "$(ls -A ../built_lib || true)" ]; then
             tar -C ../built_lib -czf ../archives/luau-libs-Android-${{ matrix.arch }}.tar.gz .
@@ -430,7 +385,6 @@ jobs:
           cd build
 
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            # Add CoreFoundation framework to linker flags to resolve CFBundle* when building tests/CLI for simulator
             cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
           else
             cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
@@ -438,7 +392,6 @@ jobs:
 
           cmake --build . --config MinSizeRel
 
-          # Combine MINIMAL Luau libraries (Ast/Compiler/Config/VM/CodeGen)
           libs=$( (find . -name 'libLuau.Ast.a' -type f; find . -name 'libLuau.Compiler.a' -type f; find . -name 'libLuau.Config.a' -type f; find . -name 'libLuau.VM.a' -type f; find . -name 'libLuau.CodeGen.a' -type f) | tr '\n' ' ' )
           if [ -z "$libs" ]; then
             echo "No minimal libLuau.*.a found"; exit 1
@@ -450,7 +403,6 @@ jobs:
           cp "${{ matrix.lib_name }}" ../built_lib/ || true
           ls -la ../built_lib/
 
-          # Archive built_lib
           mkdir -p ../archives
           if [ -d ../built_lib ] && [ "$(ls -A ../built_lib || true)" ]; then
             tar -C ../built_lib -czf ../archives/luau-libs-iOS-${{ matrix.arch }}.tar.gz .
@@ -469,188 +421,174 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-
   combine-libs:
-      needs: [build-libs, build-android-libs, build-ios-libs]
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-          with:
-            lfs: false
-            persist-credentials: true
-    
-        - name: Download all artifacts
-          uses: actions/download-artifact@v4
-    
-        - name: Create lib directories
-          run: |
-            mkdir -p project/luau/lib/Linux/x64
-            mkdir -p project/luau/lib/Linux/arm64
-            mkdir -p project/luau/lib/Windows/x64
-            mkdir -p project/luau/lib/Windows/arm64
-            mkdir -p project/luau/lib/MacOS/x64
-            mkdir -p project/luau/lib/MacOS/arm64
-            mkdir -p project/luau/lib/Android
-            mkdir -p project/luau/lib/iOS
-    
-        - name: Extract artifact archives (tar.gz / zip) into their artifact folders
-          shell: bash
-          run: |
-            shopt -s nullglob
-            for d in luau-libs-* ; do
-              if [ -d "$d" ]; then
-                echo "Processing artifact folder: $d"
-                for a in "$d"/*; do
-                  case "$a" in
-                    *.tar.gz) echo "Extracting $a"; tar -xzf "$a" -C "$d" ;;
-                    *.zip) echo "Unzipping $a"; unzip -q "$a" -d "$d" ;;
-                    *) echo "Skipping non-archive file $a" ;;
-                  esac
-                done
-                echo "Contents of $d after extraction:"
-                ls -la "$d" || true
-              fi
-            done
-    
-        - name: Move extracted files to correct locations
-          run: |
-            # Linux x64
-            if [ -d "luau-libs-Linux-x64" ] && [ -f "luau-libs-Linux-x64/libluau.a" ]; then
-              mv luau-libs-Linux-x64/libluau.a project/luau/lib/Linux/x64/libluau.a
-              echo "Moved Linux x64 library"
-            else
-              echo "No Linux x64 library found"
+    needs: [build-libs, build-android-libs, build-ios-libs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          persist-credentials: true
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create lib directories
+        run: |
+          mkdir -p project/luau/lib/Linux/x64
+          mkdir -p project/luau/lib/Linux/arm64
+          mkdir -p project/luau/lib/Windows/x64
+          mkdir -p project/luau/lib/Windows/arm64
+          mkdir -p project/luau/lib/MacOS/x64
+          mkdir -p project/luau/lib/MacOS/arm64
+          mkdir -p project/luau/lib/Android
+          mkdir -p project/luau/lib/iOS
+
+      - name: Extract artifact archives (tar.gz / zip) into their artifact folders
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for d in luau-libs-* ; do
+            if [ -d "$d" ]; then
+              echo "Processing artifact folder: $d"
+              for a in "$d"/*; do
+                case "$a" in
+                  *.tar.gz) echo "Extracting $a"; tar -xzf "$a" -C "$d" ;;
+                  *.zip) echo "Unzipping $a"; unzip -q "$a" -d "$d" ;;
+                  *) echo "Skipping non-archive file $a" ;;
+                esac
+              done
+              echo "Contents of $d after extraction:"
+              ls -la "$d" || true
             fi
-            # Linux arm64
-            if [ -d "luau-libs-Linux-arm64" ] && [ -f "luau-libs-Linux-arm64/libluau.a" ]; then
-              mv luau-libs-Linux-arm64/libluau.a project/luau/lib/Linux/arm64/libluau.a
-              echo "Moved Linux arm64 library"
-            else
-              echo "No Linux arm64 library found"
-            fi
-    
-            # Windows x64
-            if [ -d "luau-libs-Windows-x64" ] && [ -f "luau-libs-Windows-x64/luau.lib" ]; then
-              mv luau-libs-Windows-x64/luau.lib project/luau/lib/Windows/x64/luau.lib
-              echo "Moved Windows x64 library"
-            else
-              echo "No Windows x64 library found"
-            fi
-            # Windows arm64
-            if [ -d "luau-libs-Windows-arm64" ] && [ -f "luau-libs-Windows-arm64/luau.lib" ]; then
-              mv luau-libs-Windows-arm64/luau.lib project/luau/lib/Windows/arm64/luau.lib
-              echo "Moved Windows arm64 library"
-            else
-              echo "No Windows arm64 library found"
-            fi
-    
-            # MacOS x64
-            if [ -d "luau-libs-MacOS-x64" ] && [ -f "luau-libs-MacOS-x64/libluau.a" ]; then
-              mv luau-libs-MacOS-x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
-              echo "Moved MacOS x64 library"
-            else
-              echo "No MacOS x64 library found"
-            fi
-            # MacOS arm64
-            if [ -d "luau-libs-MacOS-arm64" ] && [ -f "luau-libs-MacOS-arm64/libluau.a" ]; then
-              mv luau-libs-MacOS-arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
-              echo "Moved MacOS arm64 library"
-            else
-              echo "No MacOS arm64 library found"
-            fi
-    
-            # Android arm64/x64
-            if [ -d "luau-libs-Android-arm64" ] && [ -f "luau-libs-Android-arm64/libluau-arm64.a" ]; then
-              mv luau-libs-Android-arm64/libluau-arm64.a project/luau/lib/Android/libluau-arm64.a
-              echo "Moved Android arm64 library"
-            else
-              echo "No Android arm64 library found"
-            fi
-            if [ -d "luau-libs-Android-x64" ] && [ -f "luau-libs-Android-x64/libluau-x86_64.a" ]; then
-              mv luau-libs-Android-x64/libluau-x86_64.a project/luau/lib/Android/libluau-x86_64.a
-              echo "Moved Android x64 library"
-            else
-              echo "No Android x64 library found"
-            fi
-            # Android armv7a/x86 (32-bit)
-            if [ -d "luau-libs-Android-armv7a" ] && [ -f "luau-libs-Android-armv7a/libluau-armv7a.a" ]; then
-              mv luau-libs-Android-armv7a/libluau-armv7a.a project/luau/lib/Android/libluau-armv7a.a
-              echo "Moved Android armv7a library"
-            else
-              echo "No Android armv7a library found"
-            fi
-            if [ -d "luau-libs-Android-x86" ] && [ -f "luau-libs-Android-x86/libluau-x86.a" ]; then
-              mv luau-libs-Android-x86/libluau-x86.a project/luau/lib/Android/libluau-x86.a
-              echo "Moved Android x86 library"
-            else
-              echo "No Android x86 library found"
-            fi
-    
-            # iOS arm64/x64
-            if [ -d "luau-libs-iOS-arm64" ] && [ -f "luau-libs-iOS-arm64/libluau_device.a" ]; then
-              mv luau-libs-iOS-arm64/libluau_device.a project/luau/lib/iOS/libluau_device.a
-              echo "Moved iOS device (arm64) library"
-            else
-              echo "No iOS arm64 library found"
-            fi
-            if [ -d "luau-libs-iOS-x64" ] && [ -f "luau-libs-iOS-x64/libluau_sim.a" ]; then
-              mv luau-libs-iOS-x64/libluau_sim.a project/luau/lib/iOS/libluau_sim.a
-              echo "Moved iOS simulator (x64) library"
-            else
-              echo "No iOS x64 library found"
-            fi
-    
-        - name: Upload libraries to GitHub Release using gh (reliable for large files)
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          shell: bash
-          run: |
-            set -euo pipefail
-    
-            REPO="${{ github.repository }}"
-            # Make a unique tag that reflects current time to ensure release date is "now"
-            TAG="prebuilt-luau-${{ github.run_id }}-$(date -u +%Y%m%dT%H%M%SZ)"
-            BODY="Prebuilt Luau libraries for run ${{ github.run_id }} (workflow ${{ github.workflow }}) uploaded at $(date -u +%Y-%m-%dT%H:%M:%SZ UTC)"
-            echo "Creating release $TAG in $REPO"
-    
-            # Install gh CLI (on ubuntu-latest); gh is needed for robust asset uploads and clobber support
-            if ! command -v gh >/dev/null 2>&1; then
-              sudo apt-get update
-              sudo apt-get install -y gh
-            fi
-    
-            # Authenticate gh with GITHUB_TOKEN
-            echo "${GITHUB_TOKEN}" | gh auth login --with-token
-    
-            # Create release (if a release with this tag somehow already exists, delete and recreate to ensure "now" timestamp)
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "Release $TAG already exists, deleting to ensure fresh timestamp."
-              gh release delete "$TAG" --yes || true
-            fi
-    
-            gh release create "$TAG" --title "$TAG" --notes "$BODY" --target HEAD || {
-              echo "gh release create failed"; exit 1;
-            }
-    
-            # Upload each file under project/luau/lib, naming assets by path to avoid collisions
-            shopt -s globstar nullglob
-            files=(project/luau/lib/**/*)
-            if [ ${#files[@]} -eq 0 ]; then
-              echo "No files found under project/luau/lib to upload. Exiting."
-              exit 1
-            fi
-    
-            for f in "${files[@]}"; do
-              if [ -f "$f" ]; then
-                rel="${f#project/luau/lib/}"
-                asset_name="${rel//\//-}"
-                echo "Uploading $f as release asset: $asset_name"
-                # gh release upload supports --clobber to replace same-name assets
-                gh release upload "$TAG" "$f" --clobber --name "$asset_name" || {
-                  echo "gh upload failed for $f"; exit 1;
-                }
-              fi
-            done
-    
-            echo "All assets uploaded to release $TAG."
+          done
+
+      - name: Move extracted files to correct locations
+        run: |
+          if [ -d "luau-libs-Linux-x64" ] && [ -f "luau-libs-Linux-x64/libluau.a" ]; then
+            mv luau-libs-Linux-x64/libluau.a project/luau/lib/Linux/x64/libluau.a
+            echo "Moved Linux x64 library"
+          else
+            echo "No Linux x64 library found"
+          fi
+          if [ -d "luau-libs-Linux-arm64" ] && [ -f "luau-libs-Linux-arm64/libluau.a" ]; then
+            mv luau-libs-Linux-arm64/libluau.a project/luau/lib/Linux/arm64/libluau.a
+            echo "Moved Linux arm64 library"
+          else
+            echo "No Linux arm64 library found"
+          fi
+          if [ -d "luau-libs-Windows-x64" ] && [ -f "luau-libs-Windows-x64/luau.lib" ]; then
+            mv luau-libs-Windows-x64/luau.lib project/luau/lib/Windows/x64/luau.lib
+            echo "Moved Windows x64 library"
+          else
+            echo "No Windows x64 library found"
+          fi
+          if [ -d "luau-libs-Windows-arm64" ] && [ -f "luau-libs-Windows-arm64/luau.lib" ]; then
+            mv luau-libs-Windows-arm64/luau.lib project/luau/lib/Windows/arm64/luau.lib
+            echo "Moved Windows arm64 library"
+          else
+            echo "No Windows arm64 library found"
+          fi
+          if [ -d "luau-libs-MacOS-x64" ] && [ -f "luau-libs-MacOS-x64/libluau.a" ]; then
+            mv luau-libs-MacOS-x64/libluau.a project/luau/lib/MacOS/x64/libluau.a
+            echo "Moved MacOS x64 library"
+          else
+            echo "No MacOS x64 library found"
+          fi
+          if [ -d "luau-libs-MacOS-arm64" ] && [ -f "luau-libs-MacOS-arm64/libluau.a" ]; then
+            mv luau-libs-MacOS-arm64/libluau.a project/luau/lib/MacOS/arm64/libluau.a
+            echo "Moved MacOS arm64 library"
+          else
+            echo "No MacOS arm64 library found"
+          fi
+          if [ -d "luau-libs-Android-arm64" ] && [ -f "luau-libs-Android-arm64/libluau-arm64.a" ]; then
+            mv luau-libs-Android-arm64/libluau-arm64.a project/luau/lib/Android/libluau-arm64.a
+            echo "Moved Android arm64 library"
+          else
+            echo "No Android arm64 library found"
+          fi
+          if [ -d "luau-libs-Android-x64" ] && [ -f "luau-libs-Android-x64/libluau-x86_64.a" ]; then
+            mv luau-libs-Android-x64/libluau-x86_64.a project/luau/lib/Android/libluau-x86_64.a
+            echo "Moved Android x64 library"
+          else
+            echo "No Android x64 library found"
+          fi
+          if [ -d "luau-libs-Android-armv7a" ] && [ -f "luau-libs-Android-armv7a/libluau-armv7a.a" ]; then
+            mv luau-libs-Android-armv7a/libluau-armv7a.a project/luau/lib/Android/libluau-armv7a.a
+            echo "Moved Android armv7a library"
+          else
+            echo "No Android armv7a library found"
+          fi
+          if [ -d "luau-libs-Android-x86" ] && [ -f "luau-libs-Android-x86/libluau-x86.a" ]; then
+            mv luau-libs-Android-x86/libluau-x86.a project/luau/lib/Android/libluau-x86.a
+            echo "Moved Android x86 library"
+          else
+            echo "No Android x86 library found"
+          fi
+          if [ -d "luau-libs-iOS-arm64" ] && [ -f "luau-libs-iOS-arm64/libluau_device.a" ]; then
+            mv luau-libs-iOS-arm64/libluau_device.a project/luau/lib/iOS/libluau_device.a
+            echo "Moved iOS device (arm64) library"
+          else
+            echo "No iOS arm64 library found"
+          fi
+          if [ -d "luau-libs-iOS-x64" ] && [ -f "luau-libs-iOS-x64/libluau_sim.a" ]; then
+            mv luau-libs-iOS-x64/libluau_sim.a project/luau/lib/iOS/libluau_sim.a
+            echo "Moved iOS simulator (x64) library"
+          else
+            echo "No iOS x64 library found"
+          fi
+
+      - name: Commit and push prebuilt libraries using Git LFS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # configure git identity (uses checkout persist-credentials for push auth)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Install git-lfs if missing (ubuntu runner)
+          if ! command -v git-lfs >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y git-lfs
+          fi
+
+          git lfs install --local
+
+          # Track the binary extensions we will push. This creates/updates .gitattributes.
+          git lfs track "*.a" || true
+          git lfs track "*.lib" || true
+
+          # Add .gitattributes so tracking is committed
+          git add .gitattributes || true
+
+          # Force-add built libraries (binaries) to Git index so LFS will manage them
+          git add -f project/luau/lib || true
+
+          # If nothing staged, skip
+          if git diff --cached --quiet; then
+            echo "No prebuilt libraries changes to commit; skipping push."
+            exit 0
+          fi
+
+          # Create a dedicated branch for this run (so main stays clean). You can change to main if desired.
+          BRANCH="prebuilt-luau/${{ github.run_id }}"
+          git checkout -b "$BRANCH"
+
+          git commit -m "chore: update prebuilt luau libraries [skip ci]" || true
+
+          # Push branch (LFS objects uploaded automatically by git push)
+          git push --set-upstream origin "$BRANCH"
+
+          echo "Prebuilt libs pushed to branch $BRANCH (via Git LFS). Create a PR to merge into main if desired."
+
+      - name: (optional) Create PR to merge prebuilt branch into main
+        if: false
+        run: |
+          # This step is disabled by default. To enable automatic PR creation,
+          # set if: true or remove the "if: false" condition.
+          # Uses gh CLI (requires gh auth) or GitHub API to create PR programmatically.
+          echo "Disabled by default. Enable if you want automatic PR creation."
