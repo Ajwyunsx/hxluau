@@ -179,76 +179,86 @@ jobs:
           # Optional: print file type for debugging
           command -v file >/dev/null 2>&1 && file -b libluau.a || true
         shell: bash
-
+        
       - name: Build Luau library (Windows)
         if: matrix.platform == 'Windows'
         run: |
-          REM Remove existing incomplete Luau source
-          rmdir /s /q project\luau 2>nul || exit /b 0
-
-          REM Clone official Luau repository
-          git clone https://github.com/luau-lang/luau.git project\luau
-
-          REM Navigate to Luau source directory
-          cd project\luau
-
-          REM Build with CMake using Ninja generator
-          mkdir build
-          cd build
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DLUAU_ENABLE_CODEGEN=ON
-          cmake --build . --config MinSizeRel
-
-          REM Combine minimal set of Luau libraries (Ast/Compiler/Config/VM/CodeGen)
-          echo Listing candidate Luau.*.lib in current build dir:
-          dir /b Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib 2>nul
-
-          setlocal EnableDelayedExpansion
-          set FILES=
-          rem Prefer libs in current build dir (Ninja single-config)
-          for %%f in (Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib) do (
-            if exist "%%f" set FILES=!FILES! "%%f"
-          )
-
-          rem Fallback: recursive search, excluding CMakeFiles (to avoid bogus paths)
-          if "!FILES!"=="" (
-            echo No libs found in current dir; searching recursively...
-            for /r %%f in (Luau.Ast.lib) do (
-              echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+            REM Remove existing incomplete Luau source
+            rmdir /s /q project\luau 2>nul || exit /b 0
+        
+            REM Clone official Luau repository
+            git clone https://github.com/luau-lang/luau.git project\luau
+        
+            REM Navigate to Luau source directory
+            cd project\luau
+        
+            REM Build with CMake using Ninja generator
+            mkdir build
+            cd build
+            cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DLUAU_ENABLE_CODEGEN=ON
+            cmake --build . --config MinSizeRel
+        
+            REM Combine minimal set of Luau libraries (Ast/Compiler/Config/VM/CodeGen)
+            echo Listing candidate Luau.*.lib in current build dir:
+            dir /b Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib 2>nul
+        
+            setlocal EnableDelayedExpansion
+            set FILES=
+            rem Prefer libs in current build dir (Ninja single-config)
+            for %%f in (Luau.Ast.lib Luau.Compiler.lib Luau.Config.lib Luau.VM.lib Luau.CodeGen.lib) do (
+              if exist "%%f" set FILES=!FILES! "%%f"
             )
-            for /r %%f in (Luau.Compiler.lib) do (
-              echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+        
+            rem Fallback: recursive search, excluding CMakeFiles (to avoid bogus paths)
+            if "!FILES!"=="" (
+              echo No libs found in current dir; searching recursively...
+              for /r %%f in (Luau.Ast.lib) do (
+                echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+              )
+              for /r %%f in (Luau.Compiler.lib) do (
+                echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+              )
+              for /r %%f in (Luau.Config.lib) do (
+                echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+              )
+              for /r %%f in (Luau.VM.lib) do (
+                echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+              )
+              for /r %%f in (Luau.CodeGen.lib) do (
+                echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+              )
             )
-            for /r %%f in (Luau.Config.lib) do (
-              echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
+            if "!FILES!"=="" (
+              echo No .lib files found to merge. Failing.
+              exit /b 1
             )
-            for /r %%f in (Luau.VM.lib) do (
-              echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
-            )
-            for /r %%f in (Luau.CodeGen.lib) do (
-              echo %%f | findstr /i /c:"\CMakeFiles\" >nul || set FILES=!FILES! "%%f"
-            )
-          )
-          if "!FILES!"=="" (
-            echo No .lib files found to merge. Failing.
-            exit /b 1
-          )
-          echo Merging libs:
-          echo !FILES!
-          lib.exe /OUT:luau.lib !FILES!
-          if errorlevel 1 exit /b %errorlevel%
-
-          REM Copy to built_lib
-          mkdir ..\built_lib 2>nul || exit /b 0
-          copy /Y luau.lib ..\built_lib\luau.lib
-
-          REM Archive built_lib into a single zip for upload
-          powershell -Command ^
-            "if (-Not (Test-Path 'project\luau\archives')) { New-Item -ItemType Directory -Path 'project\luau\archives' | Out-Null } ;" ^
-            "if (Test-Path 'project\luau\built_lib' -and (Get-ChildItem 'project\luau\built_lib' -Recurse -File)) { Compress-Archive -Path project\luau\built_lib\\* -DestinationPath project\luau\archives\\luau-libs-${{ matrix.platform }}-${{ matrix.arch }}.zip -Force } else { Write-Error 'built_lib missing or empty'; exit 1 }"
-
-          REM Debug
-          echo Files in archives directory:
-          dir ..\archives\
+            echo Merging libs:
+            echo !FILES!
+            lib.exe /OUT:luau.lib !FILES!
+            if errorlevel 1 exit /b %errorlevel%
+        
+            REM Copy to built_lib
+            mkdir ..\built_lib 2>nul || exit /b 0
+            copy /Y luau.lib ..\built_lib\luau.lib
+        
+            REM Debug: Check built_lib contents
+            echo Checking built_lib contents:
+            dir ..\built_lib
+        
+            REM Create archives directory if missing
+            powershell -Command "New-Item -ItemType Directory -Path 'project\luau\archives' -Force"
+        
+            REM Archive built_lib into a single zip for upload
+            powershell -Command ^
+              "if ((Test-Path 'project\luau\built_lib') -and (Get-ChildItem 'project\luau\built_lib' -File)) {" ^
+              "  Compress-Archive -Path 'project\luau\built_lib\*' -DestinationPath 'project\luau\archives\luau-libs-${{ matrix.platform }}-${{ matrix.arch }}.zip' -Force" ^
+              "} else {" ^
+              "  Write-Error 'built_lib missing or empty'; exit 1" ^
+              "}"
+        
+            REM Debug
+            echo Files in archives directory:
+            dir ..\archives\
         shell: cmd
 
       - name: Validate Windows library (luau.lib)
