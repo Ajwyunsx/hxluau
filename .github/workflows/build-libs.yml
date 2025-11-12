@@ -539,30 +539,34 @@ jobs:
             echo "No iOS x64 library found"
           fi
 
-      - name: Commit and push prebuilt libraries using Git LFS
+      - name: Commit and push prebuilt libraries using Git LFS (push as you + co-authored by bot)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
 
-          # configure git identity (uses checkout persist-credentials for push auth)
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 检查是否提供了 PAT（必须）
+          if [ -z "${PAT:-}" ]; then
+            echo "ERROR: PERSONAL_ACCESS_TOKEN secret is not set. Please add it to repository secrets." >&2
+            exit 1
+          fi
+
+          # configure git identity for the commit author (your identity)
+          git config user.name "Ajwyunsx"
+          git config user.email "41898282+Ajwyunsx@users.noreply.github.com"
 
           # Install git-lfs if missing (ubuntu runner)
           if ! command -v git-lfs >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y git-lfs
           fi
-
           git lfs install --local
 
-          # Track the binary extensions we will push. This creates/updates .gitattributes.
+          # Ensure LFS tracking for binaries
           git lfs track "*.a" || true
           git lfs track "*.lib" || true
-
-          # Add .gitattributes so tracking is committed
           git add .gitattributes || true
 
           # Force-add built libraries (binaries) to Git index so LFS will manage them
@@ -574,16 +578,26 @@ jobs:
             exit 0
           fi
 
-          # Create a dedicated branch for this run (so main stays clean). You can change to main if desired.
-          BRANCH="main/${{ github.run_id }}"
+          # Create a dedicated branch for this run
+          BRANCH="prebuilt-luau/${{ github.run_id }}"
+
+          # create the commit with author set to you and include co-author for the bot
+          COMMIT_MSG="chore: update prebuilt luau libraries [skip ci]
+
+          Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          # Make commit with author set (this will set author metadata to your git config name/email)
           git checkout -b "$BRANCH"
+          git commit -m "$COMMIT_MSG" --author="Ajwyunsx <41898282+Ajwyunsx@users.noreply.github.com" || true
 
-          git commit -m "chore: update prebuilt luau libraries [skip ci]" || true
+          # Use PAT for authentication when pushing so the push appears as your account
+          # and so that GitHub accepts the push as coming from your user.
+          ORIGIN_URL="https://x-access-token:${PAT}@github.com/${{ github.repository }}.git"
+          git remote set-url origin "$ORIGIN_URL"
 
-          # Push branch (LFS objects uploaded automatically by git push)
+          # Push branch (git-lfs objects will be uploaded automatically)
           git push --set-upstream origin "$BRANCH"
 
-          echo "Prebuilt libs pushed to branch $BRANCH (via Git LFS). Create a PR to merge into main if desired."
+          echo "Prebuilt libs pushed to branch $BRANCH (via Git LFS) as user Ajwyunsx with co-author github-actions[bot]."
 
       - name: (optional) Create PR to merge prebuilt branch into main
         if: false
@@ -592,4 +606,3 @@ jobs:
           # set if: true or remove the "if: false" condition.
           # Uses gh CLI (requires gh auth) or GitHub API to create PR programmatically.
           echo "Disabled by default. Enable if you want automatic PR creation."
-
