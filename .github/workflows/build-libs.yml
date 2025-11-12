@@ -1,4 +1,10 @@
-
+# Optimized: compress built libraries into a single archive per job (tar.gz on Linux/macOS/Android/iOS, .zip on Windows)
+# and upload that single archive as the artifact (smaller, fewer files, more robust).
+# combine-libs updated to extract archives before moving files.
+# retention-days added to uploads.
+# Other upload robustness improvements: explicit archive existence checks and clearer debug output.
+#
+# Trigger: manual workflow_dispatch
 name: Build Luau Libraries
 
 on: workflow_dispatch
@@ -84,10 +90,11 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "MacOS" ]; then
             # macOS: choose architecture via CMAKE_OSX_ARCHITECTURES
+            # Add CoreFoundation framework to linker flags to resolve CFBundle* symbols on Apple platforms.
             if [ "${{ matrix.arch }}" = "x64" ]; then
-              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=x86_64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
             else
-              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON
+              cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_OSX_ARCHITECTURES=arm64 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
             fi
           else
             # Linux: use Ninja; install cross toolchain if arm64
@@ -423,9 +430,10 @@ jobs:
           cd build
 
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+            # Add CoreFoundation framework to linker flags to resolve CFBundle* when building tests/CLI for simulator
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
           else
-            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+            cmake .. -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=${{ matrix.sdk }} -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DBUILD_TESTING=OFF -DLUAU_BUILD_TESTS=OFF -DLUAU_BUILD_CLI=OFF -DLUAU_ENABLE_CODEGEN=ON -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation"
           fi
 
           cmake --build . --config MinSizeRel
