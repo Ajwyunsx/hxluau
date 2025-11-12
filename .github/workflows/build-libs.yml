@@ -612,7 +612,7 @@ jobs:
           BODY="Prebuilt Luau libraries for run ${{ github.run_id }} (workflow ${{ github.workflow }})"
           echo "Creating release $TAG in $REPO"
 
-          # Ensure jq is available (used to construct/parse JSON)
+          # Ensure jq is available (used to construct/parse JSON and to url-encode asset names)
           if ! command -v jq >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y jq
@@ -621,13 +621,14 @@ jobs:
           # Create a release via the GitHub API (will create the tag if it doesn't exist)
           create_resp=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$REPO/releases -d "$(jq -n --arg tag "$TAG" --arg name "$TAG" --arg body "$BODY" '{ tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false }')")
           upload_url=$(echo "$create_resp" | jq -r .upload_url | sed -e "s/{?name,label}//")
+          release_id=$(echo "$create_resp" | jq -r .id)
 
           if [ -z "$upload_url" ] || [ "$upload_url" = "null" ]; then
             echo "Failed to create release. Response:"
             echo "$create_resp"
             exit 1
           fi
-          echo "Release upload URL: $upload_url"
+          echo "Release upload URL: $upload_url (release id: $release_id)"
 
           # Upload every file under project/luau/lib as a release asset (handles large files)
           shopt -s globstar nullglob
@@ -639,9 +640,45 @@ jobs:
 
           for f in "${files[@]}"; do
             if [ -f "$f" ]; then
-              name=$(basename "$f")
-              echo "Uploading $f as $name ..."
-              curl --fail -S -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$f" "$upload_url?name=$name" || { echo "Upload failed for $f"; exit 1; }
+              # Create a unique asset name based on path under project/luau/lib, e.g. Linux-x64-libluau.a
+              rel="${f#project/luau/lib/}"
+              asset_name="${rel//\//-}"   # replace slashes with dashes so names are unique and human-readable
+              echo "Preparing upload: $f -> asset name: $asset_name"
+
+              # If an asset with the same name already exists in the release, delete it first.
+              existing_id=$(curl -s -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/releases/$release_id/assets" | jq -r --arg name "$asset_name" '.[] | select(.name == $name) | .id' || true)
+              if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
+                echo "Existing asset with same name found (id=$existing_id). Deleting before upload."
+                curl -s -X DELETE -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/releases/assets/$existing_id" || true
+                echo "Deleted existing asset id $existing_id."
+              fi
+
+              # URL-encode the asset name for the upload URL
+              encoded_name=$(jq -rn --arg n "$asset_name" '$n|@uri')
+
+              # Retry upload with exponential backoff
+              max_attempts=5
+              attempt=0
+              success=0
+              while [ $attempt -lt $max_attempts ]; do
+                attempt=$((attempt+1))
+                echo "Uploading $f as $asset_name (attempt $attempt/$max_attempts)..."
+                http_status=$(curl -s -w "%{http_code}" -o /tmp/upload_resp -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @"$f" "$upload_url?name=$encoded_name" || true)
+                if [ "$http_status" = "201" ]; then
+                  echo "Upload succeeded for $asset_name."
+                  success=1
+                  break
+                else
+                  echo "Upload attempt $attempt failed with HTTP $http_status. Response:"
+                  sed -n '1,200p' /tmp/upload_resp || true
+                  sleep $(( attempt * 2 ))
+                fi
+              done
+
+              if [ $success -ne 1 ]; then
+                echo "Upload failed for $f after $max_attempts attempts. Aborting."
+                exit 1
+              fi
             fi
           done
 
