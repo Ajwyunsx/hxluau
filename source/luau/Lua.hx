@@ -262,6 +262,9 @@ extern class Lua {
     @:native('lua_rawgeti')
     static function rawgeti(L:cpp.RawPointer<Lua_State>, idx:Int, n:Int):Int;
 
+	@:native('lua_objlen')
+	static function objlen(L:cpp.RawPointer<Lua_State>, idx:Int):cpp.SizeT;
+
 	@:native('lua_rawget')
 	static function rawget(L:cpp.RawPointer<Lua_State>, idx:Int):Int;
 
@@ -304,15 +307,18 @@ extern class Lua {
     static inline function print(L:cpp.RawPointer<Lua_State>):Int {
         final nargs:Int = Lua.gettop(L);
 
+        // Build the whole line first, then emit it in one write + one flush.
+        // Avoids a syscall per argument for log-heavy scripts.
+        var line = new StringBuf();
         for (i in 0...nargs) {
             final str = Lua.tostring(L, i + 1);
-            if (str != null) {
-                final msg:String = str;
-                Sys.println(msg);
-                // Also flush to ensure output appears
-                Sys.stdout().flush();
-            }
+            line.add(str != null ? cast(str, String) : "nil");
+            if (i + 1 < nargs)
+                line.add("\t");
         }
+        Sys.println(line.toString());
+        // Also flush to ensure output appears
+        Sys.stdout().flush();
 
         Lua.pop(L, nargs);
         return 0;
@@ -343,12 +349,24 @@ class Lua_helper {
 	@:noCompletion
 	private static var callbacks_function:cpp.Callable<State->String->Int> = null;
 
+    // Cached callable for the callback bridge; built once instead of per closure push
+    @:noCompletion
+    public static var callbackCallable:Lua_CFunction = cpp.Callable.fromStaticFunction(callback_handler);
+
+    // Allocate an id, store the callback in the fast-path map, and return the id.
+    // Callers push the id as the closure upvalue so the bridge never touches strings.
+    @:noCompletion
+    public static inline function allocCallbackId(f:Dynamic):Int {
+        var id:Int = (freeIds.length > 0 ? freeIds.pop() : nextCallbackId++);
+        callbacksById.set(id, f);
+        return id;
+    }
+
     public static function add_callback(L:cpp.RawPointer<Lua_State>, fname:String, f:Dynamic):Int {
         // Keep name-based map for legacy inbound calls (rare)
         callbacks.set(fname, f);
 
-        var id:Int = (freeIds.length > 0 ? freeIds.pop() : nextCallbackId++);
-        callbacksById.set(id, f);
+        var id:Int = allocCallbackId(f);
 
         var ids = nameToIds.get(fname);
         if (ids == null) {
@@ -359,7 +377,7 @@ class Lua_helper {
 
         // Use integer id in upvalue for faster lookup; keep global name as fname
         Lua.pushinteger(L, id);
-        Lua.pushcclosure(L, cpp.Callable.fromStaticFunction(callback_handler), fname, 1);
+        Lua.pushcclosure(L, callbackCallable, fname, 1);
         Lua.setglobal(L, fname);
         return id;
     }
@@ -394,14 +412,22 @@ class Lua_helper {
         }
     }
 
+    @:noStack
     private static function callback_handler(L:cpp.RawPointer<Lua_State>):Int {
-        if (callbacks_function != null)
-            return callbacks_function(L, cast(Lua.tostring(L, Lua.upvalueindex(1)), String));
+        if (callbacks_function != null) {
+            // Upvalues may be a numeric id (fast path) or a legacy string name
+            final up:Int = Lua.upvalueindex(1);
+            final name:String = Lua.type(L, up) == Lua.TNUMBER
+                ? '${Lua.tointeger(L, up)}'
+                : cast(Lua.tostring(L, up), String);
+            return callbacks_function(L, name);
+        }
 
         try {
             final nargs:Int = Lua.gettop(L);
 
             var args:Array<Dynamic> = [];
+            args.resize(nargs);
             for (i in 0...nargs)
                 args[i] = Convert.fromLua(L, i + 1);
 

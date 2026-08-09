@@ -26,39 +26,47 @@ class Convert {
 					arrayToLua(l, val);
 				case TClass(haxe.ds.IntMap):
 					var imap:haxe.ds.IntMap<Dynamic> = val;
-					var len:Int = 0; for (_ in imap.keys()) len++;
-					Lua.createtable(l, len, 0);
+					Lua.createtable(l, 0, 0);
 					for (key in imap.keys()) {
 						toLua(l, imap.get(key));
 						Lua.rawseti(l, -2, key);
 					}
-				case TClass(haxe.ds.ObjectMap) | TClass(haxe.ds.StringMap):
-					var map:Map<String, Dynamic> = val;
-
-				Lua.createtable(l, Lambda.count(map), 0);
-
-				for (key => value in map) {
-					toLua(l, value);
-					Lua.setfield(l, -2, Std.isOfType(key, String) ? key : Std.string(key));
-				}
+				case TClass(haxe.ds.ObjectMap):
+					var map:haxe.ds.ObjectMap<Dynamic, Dynamic> = val;
+					Lua.createtable(l, 0, 0);
+					for (key => value in map) {
+						toLua(l, value);
+						Lua.setfield(l, -2, Std.string(key));
+					}
+				case TClass(haxe.ds.StringMap):
+					var map:haxe.ds.StringMap<Dynamic> = val;
+					Lua.createtable(l, 0, 0);
+					for (key => value in map) {
+						toLua(l, value);
+						Lua.setfield(l, -2, key);
+					}
 				case TClass(String):
 					Lua.pushstring(l, cast(val, String));
 				case TClass(haxe.io.Bytes):
 					var b:haxe.io.Bytes = val;
 					Lua.pushstring(l, b.toString());
 				case TObject:
-					Lua.createtable(l, Reflect.fields(val).length, 0);
+					var fields:Array<String> = Reflect.fields(val);
+					Lua.createtable(l, fields.length, 0);
 
-				for (key in Reflect.fields(val)) {
+				for (key in fields) {
 					toLua(l, Reflect.field(val, key));
 					Lua.setfield(l, -2, key);
 				}
             case TFunction:
-                // Wrap Haxe function as a Luau C closure using a callback bridge
-                var fname = 'hxluau_cb_${__anonCallbackId++}';
+                // Wrap Haxe function as a Luau C closure. The upvalue is the
+                // numeric callback id so the bridge can look it up in one
+                // IntMap read (no name string round-trip on the return trip).
+                var id:Int = Lua_helper.allocCallbackId(val);
+                var fname = 'hxluau_cb_$id';
                 Lua_helper.callbacks.set(fname, val);
-                Lua.pushstring(l, fname);
-                Lua.pushcclosure(l, cpp.Callable.fromStaticFunction(@:privateAccess Lua_helper.callback_handler), fname, 1);
+                Lua.pushinteger(l, id);
+                Lua.pushcclosure(l, Lua_helper.callbackCallable, fname, 1);
             case TClass(LuaCallback):
                 // Push a Luau function from registry reference so it can be passed as callback
                 var cb:LuaCallback = cast val;
@@ -109,7 +117,7 @@ class Convert {
 				} else if (array) {
 					var v = [];
 					loopTable(l, idx, {
-						var index = Std.int(Lua.tonumber(l, -2)) - 1;
+						var index = Lua.tointeger(l, -2) - 1;
 						v[index] = fromLua(l, -1);
 					});
 					cast v;
@@ -152,23 +160,26 @@ class Convert {
 		}
 	}
 
-	static inline function tableArrayFast(l:State, idx:Int):Array<Dynamic>
+	static function tableArrayFast(l:State, idx:Int):Array<Dynamic>
 	{
+		// objlen gives the array-part border in one call; 0 for hash-only tables.
+		var n:Int = Std.int(Lua.objlen(l, idx));
+		if (n == 0) return null;
 		var res:Array<Dynamic> = [];
-		var i = 1;
-		while (true)
+		res[n - 1] = null;
+		for (i in 0...n)
 		{
-			Lua.rawgeti(l, idx, i);
-			if (Lua.type(l, -1) == Lua.TNIL)
+			// Luau's lua_rawgeti returns the type of the pushed value, so the
+			// separate Lua.type call is unnecessary here.
+			if (Lua.rawgeti(l, idx, i + 1) == Lua.TNIL)
 			{
 				Lua.pop(l, 1);
-				break;
+				return null;
 			}
-			res.push(fromLua(l, -1));
+			res[i] = fromLua(l, -1);
 			Lua.pop(l, 1);
-			i++;
 		}
-		return res.length > 0 ? res : null;
+		return res;
 	}
 
 	static inline function classToLua(l:State, obj:Dynamic):Void {
@@ -208,9 +219,10 @@ class Convert {
 						var wrapper:Dynamic = function(args:Rest<Dynamic>) {
 							return Reflect.callMethod(obj, method, args);
 						};
+						var id:Int = Lua_helper.allocCallbackId(wrapper);
 						Lua_helper.callbacks.set(fname, wrapper);
-						Lua.pushstring(l, fname);
-						Lua.pushcclosure(l, cpp.Callable.fromStaticFunction(@:privateAccess Lua_helper.callback_handler), fname, 1);
+						Lua.pushinteger(l, id);
+						Lua.pushcclosure(l, Lua_helper.callbackCallable, fname, 1);
 						Lua.setfield(l, -2, field);
 					case TInt | TFloat | TBool | TClass(String) | TEnum(_):
 						toLua(l, v);

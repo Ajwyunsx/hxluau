@@ -14,17 +14,16 @@
 		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
 		<!-- Provide luaL_openlibs & luaL_newstate through wrapper that includes hxcpp PCH -->
 		<file name="${haxelib:hxluau}/source/hxluau/LuauInit.cpp" />
+		<!-- Enable Luau native codegen (AOT) on platforms whose prebuilt lib includes it.
+		     Android libs ship without codegen, so it stays off there.
+		     luau_codegen_supported() gates every call site at runtime anyway. -->
+		<flag value="-D HXLUAU_WITH_CODEGEN" if="windows" />
+		<flag value="-D HXLUAU_WITH_CODEGEN" if="macos" />
+		<flag value="-D HXLUAU_WITH_CODEGEN" if="linux" />
+		<flag value="-D HXLUAU_WITH_CODEGEN" if="iphoneos" />
+		<flag value="-D HXLUAU_WITH_CODEGEN" if="iphonesim" />
 		<!-- Default to 64-bit builds on Windows if no arch is specified -->
 		<flag value="-D HXCPP_M64" if="windows" unless="HXCPP_M64 HXCPP_ARM64" />
-	</files>
-
-	<files id="haxe">
-		<compilerflag value="-I${haxelib:hxluau}/project/luau/include" />
-		<compilerflag value="-I${haxelib:hxluau}/source" />
-		<!-- Ensure wrapper implementations are compiled into the target -->
-		<file name="${haxelib:hxluau}/source/hxluau/LuauImpl.cpp" />
-		<!-- Provide luaL_openlibs & luaL_newstate through wrapper that includes hxcpp PCH -->
-		<file name="${haxelib:hxluau}/source/hxluau/LuauInit.cpp" />
 	</files>
 
 	<files id="__main__">
