@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <unordered_map>
 #include <string>
-#include <deque>
+#include <list>
 #include <stdint.h>
 
 // Luau does not define LUA_ERRFILE; provide a fallback to match PUC-Lua
@@ -29,27 +29,35 @@ extern "C" {
 // ------------------------------------
 struct BytecodeCache
 {
-    static std::unordered_map<std::string, std::string>& data()
+    struct Entry
     {
-        static std::unordered_map<std::string, std::string> inst;
+        std::string bytecode;
+        uint64_t hash;
+    };
+
+    typedef std::list<std::string> OrderList;
+
+    static std::unordered_map<std::string, Entry>& data()
+    {
+        static std::unordered_map<std::string, Entry> inst;
         return inst;
     }
 
-    static std::unordered_map<std::string, uint64_t>& hashes()
+    static OrderList& order()
     {
-        static std::unordered_map<std::string, uint64_t> inst;
+        static OrderList inst;
         return inst;
     }
 
-    static std::deque<std::string>& order()
+    static std::unordered_map<std::string, OrderList::iterator>& orderPos()
     {
-        static std::deque<std::string> inst;
+        static std::unordered_map<std::string, OrderList::iterator> inst;
         return inst;
     }
 
     static size_t& capacity()
     {
-    static size_t cap = 128; // increased default cache size for better hit rates
+        static size_t cap = 128; // increased default cache size for better hit rates
         return cap;
     }
 
@@ -60,16 +68,16 @@ struct BytecodeCache
         while (order().size() > capacity())
         {
             const std::string& victim = order().front();
-            order().pop_front();
             data().erase(victim);
-            hashes().erase(victim);
+            orderPos().erase(victim);
+            order().pop_front();
         }
     }
 
     static void clear()
     {
         data().clear();
-        hashes().clear();
+        orderPos().clear();
         order().clear();
     }
 
@@ -86,55 +94,46 @@ struct BytecodeCache
         return h;
     }
 
-    static bool get(const std::string& key, uint64_t h, std::string& out)
+    // Returns a pointer to the cached bytecode, or NULL on miss. O(1) hit path:
+    // single map lookup, no bytecode copy, no linear LRU scan.
+    static const std::string* get(const std::string& key, uint64_t h)
     {
-        auto hi = hashes().find(key);
-        if (hi == hashes().end() || hi->second != h)
-            return false;
-
         auto di = data().find(key);
-        if (di == data().end())
-            return false;
+        if (di == data().end() || di->second.hash != h)
+            return NULL;
 
-        out = di->second;
-
-        // refresh LRU
-        for (auto it = order().begin(); it != order().end(); ++it)
+        // Refresh LRU position in O(1) via a stored list iterator
+        auto pi = orderPos().find(key);
+        if (pi != orderPos().end())
         {
-            if (*it == key)
-            {
-                order().erase(it);
-                break;
-            }
+            OrderList& ord = order();
+            ord.splice(ord.end(), ord, pi->second);
+            pi->second = --ord.end();
         }
-        order().push_back(key);
-        return true;
+        return &di->second.bytecode;
     }
 
     static void put(const std::string& key, uint64_t h, const char* bytecode, size_t size)
     {
-        std::string bc(bytecode, bytecode + size);
-        data()[key] = std::move(bc);
-        hashes()[key] = h;
+        Entry& e = data()[key];
+        e.hash = h;
+        e.bytecode.assign(bytecode, size);
 
-        // refresh LRU
-        for (auto it = order().begin(); it != order().end(); ++it)
-        {
-            if (*it == key)
-            {
-                order().erase(it);
-                break;
-            }
-        }
-        order().push_back(key);
+        // Refresh/insert LRU position in O(1)
+        OrderList& ord = order();
+        auto pi = orderPos().find(key);
+        if (pi != orderPos().end())
+            ord.splice(ord.end(), ord, pi->second);
+        else
+            orderPos()[key] = ord.insert(ord.end(), key);
 
         // evict if needed
-        while (order().size() > capacity())
+        while (ord.size() > capacity())
         {
-            const std::string& victim = order().front();
-            order().pop_front();
+            const std::string& victim = ord.front();
             data().erase(victim);
-            hashes().erase(victim);
+            orderPos().erase(victim);
+            ord.pop_front();
         }
     }
 };
@@ -184,26 +183,58 @@ void hxluau_enable_codegen(int enable)
     g_codegen_enabled = (enable != 0);
 }
 
-// Wrapper for luaL_loadstring functionality using Luau
-int hxluau_LuaL_loadstring_wrapper(lua_State* L, const char* s) {
-    // Pause GC during compilation/load to avoid excessive collector work under bulk loads
+// Pause GC only for large compiles; small scripts skip the 2-3 gc calls entirely.
+static inline int gcPauseForLoad(lua_State* L, size_t sourceSize)
+{
+    if (sourceSize < 16384)
+        return 0;
     int gcWasRunning = lua_gc(L, LUA_GCISRUNNING, 0);
     if (gcWasRunning)
         lua_gc(L, LUA_GCSTOP, 0);
+    return gcWasRunning;
+}
 
+static inline void gcResumeAfterLoad(lua_State* L, int gcWasRunning)
+{
+    if (gcWasRunning)
+        lua_gc(L, LUA_GCRESTART, 0);
+}
+
+// Wrapper for luaL_loadstring functionality using Luau
+int hxluau_LuaL_loadstring_wrapper(lua_State* L, const char* s) {
     size_t s_len = strlen(s);
+
+    int gcWasRunning = gcPauseForLoad(L, s_len);
+
+    // Cache repeated loads of small sources (hot-reload loops) keyed by source text
+    const bool cacheable = (s_len > 0 && s_len <= 16384);
+    uint64_t h = 0;
+    const std::string* cached = NULL;
+    if (cacheable)
+    {
+        h = BytecodeCache::fnv1a64(s, s_len);
+        cached = BytecodeCache::get(s, h);
+        if (cached)
+        {
+            gcResumeAfterLoad(L, gcWasRunning);
+            return luau_load(L, "string", cached->data(), cached->size(), 0);
+        }
+    }
+
     size_t bytecodeSize;
     char* bytecode = luau_compile(s, s_len, &g_compile_opts, &bytecodeSize);
     
     if (!bytecode) {
-        if (gcWasRunning)
-            lua_gc(L, LUA_GCRESTART, 0);
+        gcResumeAfterLoad(L, gcWasRunning);
         lua_pushfstring(L, "cannot compile string");
         return LUA_ERRSYNTAX;
     }
     
     // Load the bytecode
     int loadResult = luau_load(L, "string", bytecode, bytecodeSize, 0);
+
+    if (loadResult == 0 && cacheable)
+        BytecodeCache::put(s, h, bytecode, bytecodeSize);
     
     // If load succeeded, optionally compile to native code (LuaJIT-like speed-ups)
     if (loadResult == 0 && g_codegen_enabled)
@@ -224,22 +255,14 @@ int hxluau_LuaL_loadstring_wrapper(lua_State* L, const char* s) {
 #endif
     }
     free(bytecode);
-    if (gcWasRunning)
-        lua_gc(L, LUA_GCRESTART, 0);
+    gcResumeAfterLoad(L, gcWasRunning);
     return loadResult;
 }
 
 // Wrapper for luaL_loadfile functionality using Luau
 int hxluau_LuaL_loadfile_wrapper(lua_State* L, const char* filename) {
-    // Pause GC during file read/compile/load to reduce overhead spikes
-    int gcWasRunning = lua_gc(L, LUA_GCISRUNNING, 0);
-    if (gcWasRunning)
-        lua_gc(L, LUA_GCSTOP, 0);
-
     FILE* file = fopen(filename, "rb");
     if (!file) {
-        if (gcWasRunning)
-            lua_gc(L, LUA_GCRESTART, 0);
         lua_pushfstring(L, "cannot open %s", filename);
         return LUA_ERRFILE;
     }
@@ -251,8 +274,6 @@ int hxluau_LuaL_loadfile_wrapper(lua_State* L, const char* filename) {
     char* buffer = (char*)malloc(size);
     if (!buffer) {
         fclose(file);
-        if (gcWasRunning)
-            lua_gc(L, LUA_GCRESTART, 0);
         lua_pushfstring(L, "cannot allocate %d bytes for file %s", (int)size, filename);
         return LUA_ERRMEM;
     }
@@ -262,23 +283,22 @@ int hxluau_LuaL_loadfile_wrapper(lua_State* L, const char* filename) {
     
     if (read != size) {
         free(buffer);
-        if (gcWasRunning)
-            lua_gc(L, LUA_GCRESTART, 0);
         lua_pushfstring(L, "cannot read %s", filename);
         return LUA_ERRFILE;
     }
+
+    int gcWasRunning = gcPauseForLoad(L, size);
     
     // Compute content hash for cache lookup
     uint64_t h = BytecodeCache::fnv1a64(buffer, size);
 
-    // Try cache first
-    std::string cached;
-    bool haveCached = BytecodeCache::get(filename, h, cached);
+    // Try cache first (single map lookup, no bytecode copy on hit)
+    const std::string* cached = BytecodeCache::get(filename, h);
     int loadResult;
-    if (haveCached)
+    if (cached)
     {
         free(buffer);
-        loadResult = luau_load(L, filename, cached.data(), cached.size(), 0);
+        loadResult = luau_load(L, filename, cached->data(), cached->size(), 0);
     }
     else
     {
@@ -288,8 +308,7 @@ int hxluau_LuaL_loadfile_wrapper(lua_State* L, const char* filename) {
         free(buffer);
 
         if (!bytecode) {
-            if (gcWasRunning)
-                lua_gc(L, LUA_GCRESTART, 0);
+            gcResumeAfterLoad(L, gcWasRunning);
             lua_pushfstring(L, "cannot compile %s", filename);
             return LUA_ERRSYNTAX;
         }
@@ -320,8 +339,7 @@ int hxluau_LuaL_loadfile_wrapper(lua_State* L, const char* filename) {
         }
 #endif
     }
-    if (gcWasRunning)
-        lua_gc(L, LUA_GCRESTART, 0);
+    gcResumeAfterLoad(L, gcWasRunning);
     return loadResult;
 }
 
@@ -346,6 +364,15 @@ int hxluau_LuaL_dofile_wrapper(lua_State* L, const char* filename) {
 // Custom print implementation that mirrors Lua's base print behavior
 static int hxluau_print(lua_State* L) {
     int n = lua_gettop(L);  /* number of arguments */
+    if (n <= 0)
+    {
+        fputc('\n', stdout);
+        return 0;
+    }
+    // Build the whole line in one buffer, then emit it with a single write.
+    // Avoids per-character fputc calls on log-heavy scripts.
+    std::string line;
+    line.reserve(256);
     for (int i = 1; i <= n; i++) {
         const char* s = lua_tolstring(L, i, NULL);
         if (!s) {
@@ -355,10 +382,14 @@ static int hxluau_print(lua_State* L) {
             // remove temporary string
             lua_remove(L, -2);
         }
-        fputs(s ? s : "nil", stdout);
-        if (i < n) fputc('\t', stdout);
+        if (s)
+            line.append(s);
+        else
+            line.append("nil");
+        if (i < n) line.push_back('\t');
     }
-    fputc('\n', stdout);
+    line.push_back('\n');
+    fwrite(line.data(), 1, line.size(), stdout);
     return 0;
 }
 
@@ -453,6 +484,16 @@ static void hxluau_interrupt_hook(lua_State* L, int gc)
     if (!luau_codegen_supported())
         return;
 
+    // lua_getinfo + map ops are far too costly to run at every safepoint.
+    // Sample sparsely: only every 256th safepoint runs the expensive path.
+    static int tick = 0;
+    if ((++tick & 0xFF) != 0)
+        return;
+
+    // Bound the hot-counter map so long-running apps don't grow it without limit
+    if (g_hot_counters.size() > 4096)
+        g_hot_counters.clear();
+
     lua_Debug ar;
     // Use level 0 to get current function on top of the stack
     if (lua_getinfo(L, 0, "f", &ar))
@@ -461,7 +502,8 @@ static void hxluau_interrupt_hook(lua_State* L, int gc)
         if (funcptr)
         {
             int& cnt = g_hot_counters[funcptr];
-            ++cnt;
+            // Count in sampling-sized increments to keep the threshold meaningful
+            cnt += 256;
             if (cnt >= g_autocompile_threshold)
             {
                 lua_State* mainL = lua_mainthread(L);

@@ -163,9 +163,9 @@ extern class LuaL_Buffer
 	var p:cpp.CastCharStar;
 
 	/**
-	 * Number of elements in the buffer.
+	 * End of the current buffer.
 	 */
-	var lvl:Int;
+	var end:cpp.CastCharStar;
 
 	/**
 	 * Lua state.
@@ -173,7 +173,12 @@ extern class LuaL_Buffer
 	var L:cpp.RawPointer<Lua_State>;
 
 	/**
-	 * Buffer storage.
+	 * Heap storage used when the inline buffer is exhausted.
+	 */
+	var storage:cpp.RawPointer<cpp.Void>;
+
+	/**
+	 * Inline buffer storage (char buffer[LUA_BUFFERSIZE]).
 	 */
 	var buffer:cpp.Char;
 }
